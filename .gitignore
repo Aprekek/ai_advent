@@ -9,3 +9,9 @@ build/
 
 # Logs
 *.log
+
+# Local env files
+.env
+.env.*
+!.env.example
+local.properties
