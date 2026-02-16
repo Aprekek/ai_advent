@@ -1,15 +1,14 @@
 package com.aprekek.ai_advent.agentic_app.data.deepseek
 
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.*
+import io.ktor.client.engine.mock.*
+import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
-import io.ktor.serialization.kotlinx.json.json
+import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
@@ -41,7 +40,11 @@ class DeepSeekApiClientTest {
             )
         )
 
-        val result = client.sendPrompt("Hi")
+        val result = client.sendMessages(
+            listOf(
+                DeepSeekMessage(role = "user", content = "Hi")
+            )
+        )
 
         assertEquals("Hello", result)
     }
@@ -67,7 +70,11 @@ class DeepSeekApiClientTest {
         )
 
         val exception = assertFailsWith<IllegalStateException> {
-            client.sendPrompt("Hi")
+            client.sendMessages(
+                listOf(
+                    DeepSeekMessage(role = "user", content = "Hi")
+                )
+            )
         }
 
         assertContains(exception.message.orEmpty(), "HTTP 401")
