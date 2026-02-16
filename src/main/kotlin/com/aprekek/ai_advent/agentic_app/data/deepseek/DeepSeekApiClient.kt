@@ -14,7 +14,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 class DeepSeekApiClient(
@@ -25,7 +24,7 @@ class DeepSeekApiClient(
         ignoreUnknownKeys = true
     }
 
-    suspend fun sendPrompt(userInput: String): String {
+    suspend fun sendMessages(messages: List<DeepSeekMessage>): String {
         val response = httpClient.post(chatCompletionUrl()) {
             header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             accept(ContentType.Application.Json)
@@ -35,8 +34,7 @@ class DeepSeekApiClient(
                     model = config.model,
                     messages = listOf(
                         DeepSeekMessage(role = "system", content = systemInstruction(config.responseLanguage)),
-                        DeepSeekMessage(role = "user", content = userInput)
-                    )
+                    ) + messages
                 )
             )
         }

@@ -5,13 +5,18 @@ import com.aprekek.ai_advent.agentic_app.cli.TerminalInput
 import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekApiClient
 import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekChatRepository
 import com.aprekek.ai_advent.agentic_app.domain.SendMessageUseCase
-import io.ktor.client.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.coroutines.*
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.takeWhile
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 fun main() = runBlocking {
