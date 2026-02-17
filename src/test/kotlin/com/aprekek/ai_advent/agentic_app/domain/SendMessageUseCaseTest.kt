@@ -1,7 +1,11 @@
 package com.aprekek.ai_advent.agentic_app.domain
 
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
-import kotlin.test.*
 
 class SendMessageUseCaseTest {
     @Test
@@ -49,16 +53,33 @@ class SendMessageUseCaseTest {
         assertEquals("second question", secondRequestMessages[2].content)
     }
 
+    @Test
+    fun `passes request options to repository`() = runTest {
+        val repository = CapturingChatRepository(responses = mutableListOf("ok"))
+        val useCase = SendMessageUseCase(repository)
+        val options = ChatRequestOptions(
+            maxTokens = 512,
+            stopSequences = listOf("\n\n"),
+            extraSystemInstruction = "One paragraph only."
+        )
+
+        useCase("question", options)
+
+        assertEquals(options, repository.sentOptions.single())
+    }
+
     private class CapturingChatRepository(
         private val responses: MutableList<String>
     ) : ChatRepository {
         val sentRequests = mutableListOf<List<ChatMessage>>()
+        val sentOptions = mutableListOf<ChatRequestOptions>()
 
         val lastSentMessages: List<ChatMessage>?
             get() = sentRequests.lastOrNull()
 
-        override suspend fun sendMessage(messages: List<ChatMessage>): String {
+        override suspend fun sendMessage(messages: List<ChatMessage>, options: ChatRequestOptions): String {
             sentRequests += messages
+            sentOptions += options
             return responses.removeFirst()
         }
     }
