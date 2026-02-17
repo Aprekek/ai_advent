@@ -6,7 +6,10 @@ class SendMessageUseCase(
 ) {
     private val sessionHistory = mutableListOf<ChatMessage>()
 
-    suspend operator fun invoke(rawInput: String): Result<String> {
+    suspend operator fun invoke(
+        rawInput: String,
+        options: ChatRequestOptions = ChatRequestOptions.Standard
+    ): Result<String> {
         val input = rawInput.trim()
         if (input.isBlank()) {
             return Result.failure(IllegalArgumentException("Input must not be blank"))
@@ -15,7 +18,7 @@ class SendMessageUseCase(
         val userMessage = ChatMessage(role = ChatRole.User, content = input)
         val requestMessages = sessionHistory + userMessage
 
-        return runCatching { repository.sendMessage(requestMessages).trim() }
+        return runCatching { repository.sendMessage(requestMessages, options).trim() }
             .mapCatching { output ->
                 if (output.isBlank()) {
                     throw IllegalStateException("DeepSeek returned an empty response")

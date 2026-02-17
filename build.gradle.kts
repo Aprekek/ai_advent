@@ -15,6 +15,7 @@ dependencies {
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.slf4j.simple)
 
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
@@ -31,4 +32,10 @@ kotlin {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.withType<JavaExec>().configureEach {
+    standardInput = System.`in`
+    standardOutput = System.out
+    errorOutput = System.err
 }

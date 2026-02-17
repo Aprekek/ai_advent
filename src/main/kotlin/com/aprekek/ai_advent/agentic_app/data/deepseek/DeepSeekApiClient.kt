@@ -1,6 +1,7 @@
 package com.aprekek.ai_advent.agentic_app.data.deepseek
 
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
+import com.aprekek.ai_advent.agentic_app.domain.ChatRequestOptions
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.accept
@@ -24,7 +25,10 @@ class DeepSeekApiClient(
         ignoreUnknownKeys = true
     }
 
-    suspend fun sendMessages(messages: List<DeepSeekMessage>): String {
+    suspend fun sendMessages(
+        messages: List<DeepSeekMessage>,
+        options: ChatRequestOptions = ChatRequestOptions.Standard
+    ): String {
         val response = httpClient.post(chatCompletionUrl()) {
             header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             accept(ContentType.Application.Json)
@@ -33,8 +37,13 @@ class DeepSeekApiClient(
                 DeepSeekChatCompletionRequest(
                     model = config.model,
                     messages = listOf(
-                        DeepSeekMessage(role = "system", content = systemInstruction(config.responseLanguage)),
-                    ) + messages
+                        DeepSeekMessage(
+                            role = "system",
+                            content = systemInstruction(config.responseLanguage, options.extraSystemInstruction)
+                        ),
+                    ) + messages,
+                    maxTokens = options.maxTokens,
+                    stop = options.stopSequences.takeIf { it.isNotEmpty() }
                 )
             )
         }
@@ -49,8 +58,15 @@ class DeepSeekApiClient(
 
     private fun chatCompletionUrl(): String = "${config.baseUrl.trimEnd('/')}/chat/completions"
 
-    private fun systemInstruction(language: String): String =
-        "Always respond in $language unless the user explicitly requests another language."
+    private fun systemInstruction(language: String, extraInstruction: String?): String {
+        val baseInstruction = "Always respond in $language unless the user explicitly requests another language."
+        val trimmedExtraInstruction = extraInstruction?.trim().orEmpty()
+        return if (trimmedExtraInstruction.isEmpty()) {
+            baseInstruction
+        } else {
+            "$baseInstruction $trimmedExtraInstruction"
+        }
+    }
 
     private suspend fun buildErrorMessage(response: HttpResponse): String {
         val rawBody = response.bodyAsText()

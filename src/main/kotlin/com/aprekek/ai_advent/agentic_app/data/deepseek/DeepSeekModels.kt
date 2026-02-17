@@ -1,11 +1,15 @@
 package com.aprekek.ai_advent.agentic_app.data.deepseek
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class DeepSeekChatCompletionRequest(
     val model: String,
-    val messages: List<DeepSeekMessage>
+    val messages: List<DeepSeekMessage>,
+    @SerialName("max_tokens")
+    val maxTokens: Int? = null,
+    val stop: List<String>? = null
 )
 
 @Serializable
