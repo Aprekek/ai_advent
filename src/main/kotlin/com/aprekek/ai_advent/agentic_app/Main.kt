@@ -22,6 +22,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
+private const val MaxConsoleLineLength = 160
+
 fun main() = runBlocking {
     clearTerminal()
 
@@ -137,7 +139,7 @@ private suspend fun runChatMode(
             sendMessageUseCase(input, mode.requestOptions)
         }
         result.onSuccess { response ->
-            println("assistant> $response")
+            printWrappedResponse("assistant> ", response)
         }.onFailure { exception ->
             println("error> ${exception.message ?: "Unknown error"}")
         }
@@ -206,7 +208,7 @@ private suspend fun runComparisonMode(
 
                     generatedPromptResult.onSuccess { generatedPrompt ->
                         println("Сгенерированный промпт:")
-                        println(generatedPrompt)
+                        printWrappedResponse("", generatedPrompt)
                     }
 
                     generatedPromptResult.mapCatching { generatedPrompt ->
@@ -232,7 +234,7 @@ private suspend fun runComparisonMode(
                 variant.execute(input)
             }
             result.onSuccess { response ->
-                println("assistant> $response")
+                printWrappedResponse("assistant> ", response)
             }.onFailure { exception ->
                 println("error> ${exception.message ?: "Unknown error"}")
             }
@@ -272,6 +274,56 @@ private fun printHelp(model: String, responseLanguage: String, mode: ChatMode) {
     println("Current mode: ${mode.displayName}")
     println("Use q to return to mode selection (history resets after mode switch).")
     println("Use /exit to stop the app.")
+}
+
+private fun printWrappedResponse(prefix: String, text: String) {
+    val content = text.trim()
+    if (content.isEmpty()) {
+        if (prefix.isNotEmpty()) {
+            println(prefix)
+        }
+        return
+    }
+
+    val availableForFirstLine = (MaxConsoleLineLength - prefix.length).coerceAtLeast(1)
+    val availableForNextLines = MaxConsoleLineLength.coerceAtLeast(1)
+    var prefixPrinted = prefix.isEmpty()
+
+    val paragraphs = content.replace("\r\n", "\n").split('\n')
+    paragraphs.forEach { paragraph ->
+        if (paragraph.isBlank()) {
+            println()
+            return@forEach
+        }
+
+        var remaining = paragraph.trim()
+        var firstChunkInParagraph = true
+        while (remaining.isNotEmpty()) {
+            val available = if (!prefixPrinted && firstChunkInParagraph) {
+                availableForFirstLine
+            } else {
+                availableForNextLines
+            }
+            if (remaining.length <= available) {
+                val linePrefix = if (!prefixPrinted && firstChunkInParagraph) prefix else ""
+                println(linePrefix + remaining)
+                prefixPrinted = true
+                break
+            }
+
+            val splitAt = remaining
+                .lastIndexOf(' ', startIndex = available)
+                .takeIf { it > 0 }
+                ?: available
+
+            val chunk = remaining.substring(0, splitAt).trimEnd()
+            val linePrefix = if (!prefixPrinted && firstChunkInParagraph) prefix else ""
+            println(linePrefix + chunk)
+            remaining = remaining.substring(splitAt).trimStart()
+            prefixPrinted = true
+            firstChunkInParagraph = false
+        }
+    }
 }
 
 private suspend fun <T> withLoadingIndicator(block: suspend () -> T): T = withContext(Dispatchers.IO) {
