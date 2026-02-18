@@ -23,6 +23,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
 private const val MaxConsoleLineLength = 160
+private const val UserPrompt = "you> "
+private const val AssistantPrefix = "assistant> "
+private const val ErrorPrefix = "error> "
+private const val SectionSeparator = "------------------------------------------------------------"
 
 fun main() = runBlocking {
     clearTerminal()
@@ -111,8 +115,7 @@ private suspend fun runChatMode(
     println("Commands: /help, q (back to mode selection), /exit")
 
     while (true) {
-        print("you> ")
-        System.out.flush()
+        printPrompt()
 
         val rawInput = stdinReader.readLine() ?: return true
         val input = rawInput.trim()
@@ -139,9 +142,9 @@ private suspend fun runChatMode(
             sendMessageUseCase(input, mode.requestOptions)
         }
         result.onSuccess { response ->
-            printWrappedResponse("assistant> ", response)
+            printMessageBlock(AssistantPrefix, response)
         }.onFailure { exception ->
-            println("error> ${exception.message ?: "Unknown error"}")
+            printMessageBlock(ErrorPrefix, exception.message ?: "Unknown error")
         }
     }
 }
@@ -158,8 +161,7 @@ private suspend fun runComparisonMode(
     println("Commands: /help, q (back to mode selection), /exit")
 
     while (true) {
-        print("you> ")
-        System.out.flush()
+        printPrompt()
 
         val rawInput = stdinReader.readLine() ?: return true
         val input = rawInput.trim()
@@ -186,7 +188,9 @@ private suspend fun runComparisonMode(
             ComparisonVariant(
                 title = "Без доп. иструкций",
                 execute = { userPrompt ->
-                    requestOnce(chatRepository, userPrompt)
+                    requestOnce(chatRepository, userPrompt).map { response ->
+                        ComparisonOutput(response = response)
+                    }
                 }
             ),
             ComparisonVariant(
@@ -195,7 +199,9 @@ private suspend fun runComparisonMode(
                     requestOnce(
                         chatRepository,
                         "$userPrompt\n\nУсловие: реши задачу пошагово."
-                    )
+                    ).map { response ->
+                        ComparisonOutput(response = response)
+                    }
                 }
             ),
             ComparisonVariant(
@@ -206,13 +212,11 @@ private suspend fun runComparisonMode(
                         "Сгенерируй промпт для решения задачи пользователя. Верни только текст промпта без пояснений.\n\nЗадача пользователя:\n$userPrompt"
                     )
 
-                    generatedPromptResult.onSuccess { generatedPrompt ->
-                        println("Сгенерированный промпт:")
-                        printWrappedResponse("", generatedPrompt)
-                    }
-
                     generatedPromptResult.mapCatching { generatedPrompt ->
-                        requestOnce(chatRepository, generatedPrompt).getOrThrow()
+                        ComparisonOutput(
+                            generatedPrompt = generatedPrompt,
+                            response = requestOnce(chatRepository, generatedPrompt).getOrThrow()
+                        )
                     }
                 }
             ),
@@ -222,21 +226,36 @@ private suspend fun runComparisonMode(
                     requestOnce(
                         chatRepository,
                         "$userPrompt\n\nУсловие: ответь с точки зрения трех экспертов: Аналитика, Инженера, Критика."
-                    )
+                    ).map { response ->
+                        ComparisonOutput(response = response)
+                    }
                 }
             )
         )
 
-        for (variant in variants) {
+        for ((index, variant) in variants.withIndex()) {
+            if (index > 0) {
+                val shouldExit = waitForEnterToContinue(stdinReader)
+                if (shouldExit) {
+                    return true
+                }
+            }
+
             println()
+            println(SectionSeparator)
             println("Вариант: ${variant.title}")
             val result = withLoadingIndicator {
                 variant.execute(input)
             }
-            result.onSuccess { response ->
-                printWrappedResponse("assistant> ", response)
+            result.onSuccess { output ->
+                output.generatedPrompt?.let { generatedPrompt ->
+                    println("Сгенерированный промпт:")
+                    printWrappedResponse("", generatedPrompt)
+                    println()
+                }
+                printMessageBlock(AssistantPrefix, output.response)
             }.onFailure { exception ->
-                println("error> ${exception.message ?: "Unknown error"}")
+                printMessageBlock(ErrorPrefix, exception.message ?: "Unknown error")
             }
         }
 
@@ -244,6 +263,16 @@ private suspend fun runComparisonMode(
         println("Comparison mode completed. Returning to mode selection...")
         return false
     }
+}
+
+private fun waitForEnterToContinue(stdinReader: BufferedReader): Boolean {
+    println()
+    println("Нажмите Enter для перехода к следующему варианту (или /exit для выхода):")
+    print("> ")
+    System.out.flush()
+
+    val input = stdinReader.readLine() ?: return true
+    return input.trim().equals("/exit", ignoreCase = true)
 }
 
 private suspend fun requestOnce(
@@ -274,6 +303,18 @@ private fun printHelp(model: String, responseLanguage: String, mode: ChatMode) {
     println("Current mode: ${mode.displayName}")
     println("Use q to return to mode selection (history resets after mode switch).")
     println("Use /exit to stop the app.")
+}
+
+private fun printPrompt() {
+    println()
+    print(UserPrompt)
+    System.out.flush()
+}
+
+private fun printMessageBlock(prefix: String, text: String) {
+    println()
+    printWrappedResponse(prefix, text)
+    println()
 }
 
 private fun printWrappedResponse(prefix: String, text: String) {
@@ -371,5 +412,10 @@ private enum class ChatMode(
 
 private data class ComparisonVariant(
     val title: String,
-    val execute: suspend (String) -> Result<String>
+    val execute: suspend (String) -> Result<ComparisonOutput>
+)
+
+private data class ComparisonOutput(
+    val response: String,
+    val generatedPrompt: String? = null
 )
