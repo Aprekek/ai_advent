@@ -155,6 +155,8 @@ private suspend fun runComparisonMode(
     config: AppConfig,
     mode: ChatMode
 ): Boolean {
+    val comparisonModeOptions = ChatRequestOptions(maxTokens = 2048)
+
     println("${mode.displayName} enabled.")
     println("No history is used in this mode.")
     println("Enter one prompt to run all variants.")
@@ -188,7 +190,7 @@ private suspend fun runComparisonMode(
             ComparisonVariant(
                 title = "Без доп. иструкций",
                 execute = { userPrompt ->
-                    requestOnce(chatRepository, userPrompt).map { response ->
+                    requestOnce(chatRepository, userPrompt, options = comparisonModeOptions).map { response ->
                         ComparisonOutput(response = response)
                     }
                 }
@@ -198,7 +200,8 @@ private suspend fun runComparisonMode(
                 execute = { userPrompt ->
                     requestOnce(
                         chatRepository,
-                        "$userPrompt\n\nУсловие: реши задачу пошагово."
+                        "$userPrompt\n\nУсловие: реши задачу пошагово.",
+                        options = comparisonModeOptions
                     ).map { response ->
                         ComparisonOutput(response = response)
                     }
@@ -209,13 +212,18 @@ private suspend fun runComparisonMode(
                 execute = { userPrompt ->
                     val generatedPromptResult = requestOnce(
                         chatRepository,
-                        "Сгенерируй промпт для решения задачи пользователя. Верни только текст промпта без пояснений.\n\nЗадача пользователя:\n$userPrompt"
+                        "Сгенерируй промпт для решения задачи пользователя. Верни только текст промпта без пояснений.\n\nЗадача пользователя:\n$userPrompt",
+                        options = comparisonModeOptions
                     )
 
                     generatedPromptResult.mapCatching { generatedPrompt ->
                         ComparisonOutput(
                             generatedPrompt = generatedPrompt,
-                            response = requestOnce(chatRepository, generatedPrompt).getOrThrow()
+                            response = requestOnce(
+                                chatRepository,
+                                generatedPrompt,
+                                options = comparisonModeOptions
+                            ).getOrThrow()
                         )
                     }
                 }
@@ -225,7 +233,8 @@ private suspend fun runComparisonMode(
                 execute = { userPrompt ->
                     requestOnce(
                         chatRepository,
-                        "$userPrompt\n\nУсловие: ответь с точки зрения трех экспертов: Аналитика, Инженера, Критика."
+                        "$userPrompt\n\nУсловие: ответь с точки зрения трех экспертов: Аналитика, Инженера, Критика.",
+                        options = comparisonModeOptions
                     ).map { response ->
                         ComparisonOutput(response = response)
                     }
