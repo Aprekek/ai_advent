@@ -66,6 +66,14 @@ fun main() = runBlocking {
                 println()
                 continue
             }
+            if (mode == ChatMode.TemperatureDiff) {
+                val shouldExit = runTemperatureDiffMode(stdinReader, chatRepository, config, mode)
+                if (shouldExit) {
+                    return@runBlocking
+                }
+                println()
+                continue
+            }
 
             val sendMessageUseCase = SendMessageUseCase(chatRepository)
             val shouldExit = runChatMode(stdinReader, sendMessageUseCase, config, mode)
@@ -90,6 +98,7 @@ private fun selectMode(stdinReader: BufferedReader): ChatMode? {
         println("1 - Standart mode")
         println("2 - Short mode (max tokens: 512, one paragraph, stop on empty line)")
         println("3 - Comparison mode")
+        println("4 - Temperature diff mode")
         println("q - Exit")
         print("> ")
         System.out.flush()
@@ -98,8 +107,9 @@ private fun selectMode(stdinReader: BufferedReader): ChatMode? {
             "1" -> return ChatMode.Standard
             "2" -> return ChatMode.Short
             "3" -> return ChatMode.Comparison
+            "4" -> return ChatMode.TemperatureDiff
             "q" -> return null
-            else -> println("Unknown option $option. Please choose 1, 2, 3 or q.")
+            else -> println("Unknown option $option. Please choose 1, 2, 3, 4 or q.")
         }
     }
 }
@@ -274,6 +284,107 @@ private suspend fun runComparisonMode(
     }
 }
 
+private suspend fun runTemperatureDiffMode(
+    stdinReader: BufferedReader,
+    chatRepository: DeepSeekChatRepository,
+    config: AppConfig,
+    mode: ChatMode
+): Boolean {
+    println("${mode.displayName} enabled.")
+    println("No history is used in this mode.")
+    println("Enter one prompt to compare answers with different temperature values.")
+    println("Commands: /help, q (back to mode selection), /exit")
+
+    while (true) {
+        printPrompt()
+
+        val rawInput = stdinReader.readLine() ?: return true
+        val input = rawInput.trim()
+
+        if (input.isBlank()) {
+            continue
+        }
+
+        if (input.equals("/exit", ignoreCase = true)) {
+            return true
+        }
+
+        if (input.equals("q", ignoreCase = true)) {
+            println("Returning to mode selection...")
+            return false
+        }
+
+        if (input == "/help") {
+            printHelp(config.model, config.responseLanguage, mode)
+            continue
+        }
+
+        val variants = listOf(
+            ComparisonVariant(
+                title = "Температура: 0 (точность)",
+                execute = { userPrompt ->
+                    requestOnce(
+                        chatRepository,
+                        userPrompt,
+                        options = ChatRequestOptions(temperature = 0.0)
+                    ).map { response ->
+                        ComparisonOutput(response = response)
+                    }
+                }
+            ),
+            ComparisonVariant(
+                title = "Температура: 1 (баланс)",
+                execute = { userPrompt ->
+                    requestOnce(
+                        chatRepository,
+                        userPrompt,
+                        options = ChatRequestOptions(temperature = 1.0)
+                    ).map { response ->
+                        ComparisonOutput(response = response)
+                    }
+                }
+            ),
+            ComparisonVariant(
+                title = "Температура: 2 (креатив)",
+                execute = { userPrompt ->
+                    requestOnce(
+                        chatRepository,
+                        userPrompt,
+                        options = ChatRequestOptions(temperature = 2.0)
+                    ).map { response ->
+                        ComparisonOutput(response = response)
+                    }
+                }
+            )
+        )
+
+        for ((index, variant) in variants.withIndex()) {
+            if (index > 0) {
+                val shouldExit = waitForEnterToContinue(stdinReader)
+                if (shouldExit) {
+                    return true
+                }
+            }
+
+            println()
+            println(SectionSeparator)
+            println(variant.title)
+            val result = withLoadingIndicator {
+                variant.execute(input)
+            }
+            result.onSuccess { output ->
+                printMessageBlock(AssistantPrefix, output.response)
+            }.onFailure { exception ->
+                printMessageBlock(ErrorPrefix, exception.message ?: "Unknown error")
+            }
+        }
+
+        println()
+        println("Temperature diff mode completed. Returning to mode selection...")
+        return false
+    }
+}
+
 private fun waitForEnterToContinue(stdinReader: BufferedReader): Boolean {
     println()
     println("Нажмите Enter для перехода к следующему варианту (или /exit для выхода):")
@@ -415,6 +526,10 @@ private enum class ChatMode(
     ),
     Comparison(
         displayName = "Comparison mode",
+        requestOptions = ChatRequestOptions.Standard
+    ),
+    TemperatureDiff(
+        displayName = "Temperature diff mode",
         requestOptions = ChatRequestOptions.Standard
     )
 }

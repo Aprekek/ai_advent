@@ -9,7 +9,8 @@ data class DeepSeekChatCompletionRequest(
     val messages: List<DeepSeekMessage>,
     @SerialName("max_tokens")
     val maxTokens: Int? = null,
-    val stop: List<String>? = null
+    val stop: List<String>? = null,
+    val temperature: Double? = null
 )
 
 @Serializable

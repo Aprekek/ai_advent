@@ -43,7 +43,8 @@ class DeepSeekApiClient(
                         ),
                     ) + messages,
                     maxTokens = options.maxTokens,
-                    stop = options.stopSequences.takeIf { it.isNotEmpty() }
+                    stop = options.stopSequences.takeIf { it.isNotEmpty() },
+                    temperature = options.temperature
                 )
             )
         }
