@@ -358,6 +358,7 @@ private suspend fun runTemperatureDiffMode(
             )
         )
 
+        val variantResponses = mutableListOf<Pair<String, String>>()
         for ((index, variant) in variants.withIndex()) {
             if (index > 0) {
                 val shouldExit = waitForEnterToContinue(stdinReader)
@@ -373,16 +374,62 @@ private suspend fun runTemperatureDiffMode(
                 variant.execute(input)
             }
             result.onSuccess { output ->
+                variantResponses += variant.title to output.response
                 printMessageBlock(AssistantPrefix, output.response)
             }.onFailure { exception ->
                 printMessageBlock(ErrorPrefix, exception.message ?: "Unknown error")
             }
         }
 
+        if (variantResponses.size == variants.size) {
+            val comparisonPrompt = buildTemperatureComparisonPrompt(input, variantResponses)
+            println()
+            println(SectionSeparator)
+            println("Сравнение ответов (точность и креативность)")
+            val comparisonResult = withLoadingIndicator {
+                requestOnce(
+                    chatRepository,
+                    comparisonPrompt,
+                    options = ChatRequestOptions(temperature = 0.0, maxTokens = 2048)
+                )
+            }
+            comparisonResult.onSuccess { response ->
+                printMessageBlock(AssistantPrefix, response)
+            }.onFailure { exception ->
+                printMessageBlock(ErrorPrefix, exception.message ?: "Unknown error")
+            }
+        } else {
+            println()
+            println("Comparison step skipped: at least one variant failed.")
+        }
+
         println()
         println("Temperature diff mode completed. Returning to mode selection...")
         return false
     }
+}
+
+private fun buildTemperatureComparisonPrompt(
+    userPrompt: String,
+    responses: List<Pair<String, String>>
+): String {
+    val responsesBlock = responses.joinToString(separator = "\n\n") { (title, response) ->
+        "$title:\n$response"
+    }
+    return """
+        Пользовательская задача:
+        $userPrompt
+        
+        Ниже три ответа модели с разной температурой:
+        $responsesBlock
+        
+        Сравни их по двум критериям:
+        1) точность ответа,
+        2) креативность.
+        
+        Дай краткую структурированную оценку по каждому варианту и сделай итоговый вывод:
+        какой вариант лучший по точности, какой лучший по креативности, и какой оптимален по балансу.
+    """.trimIndent()
 }
 
 private fun waitForEnterToContinue(stdinReader: BufferedReader): Boolean {
