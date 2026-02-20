@@ -1,6 +1,7 @@
 package com.aprekek.ai_advent.agentic_app
 
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
+import com.aprekek.ai_advent.agentic_app.data.deepseek.CallMetrics
 import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekApiClient
 import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekChatRepository
 import com.aprekek.ai_advent.agentic_app.domain.ChatMessage
@@ -52,7 +53,8 @@ fun main() = runBlocking {
         }
     }
 
-    val chatRepository = DeepSeekChatRepository(DeepSeekApiClient(httpClient, config))
+    val apiClient = DeepSeekApiClient(httpClient, config)
+    val chatRepository = DeepSeekChatRepository(apiClient)
     println("DeepSeek CLI started.")
 
     try {
@@ -76,7 +78,7 @@ fun main() = runBlocking {
             }
 
             val sendMessageUseCase = SendMessageUseCase(chatRepository)
-            val shouldExit = runChatMode(stdinReader, sendMessageUseCase, config, mode)
+            val shouldExit = runChatMode(stdinReader, sendMessageUseCase, config, mode, apiClient)
             if (shouldExit) {
                 return@runBlocking
             }
@@ -120,7 +122,8 @@ private suspend fun runChatMode(
     stdinReader: BufferedReader,
     sendMessageUseCase: SendMessageUseCase,
     config: AppConfig,
-    mode: ChatMode
+    mode: ChatMode,
+    apiClient: DeepSeekApiClient
 ): Boolean {
     println("${mode.displayName} enabled.")
     println("Type your message and press Enter.")
@@ -173,6 +176,9 @@ private suspend fun runChatMode(
         }
         result.onSuccess { response ->
             printMessageBlock(AssistantPrefix, response)
+            if (mode == ChatMode.V30) {
+                printV30Metrics(apiClient.lastCallMetrics, config)
+            }
         }.onFailure { exception ->
             printMessageBlock(ErrorPrefix, exception.message ?: "Unknown error")
         }
@@ -490,6 +496,32 @@ private fun printHelp(model: String, responseLanguage: String, mode: ChatMode) {
     println("Current mode: ${mode.displayName}")
     println("Use q to return to mode selection (history resets after mode switch).")
     println("Use /exit to stop the app.")
+}
+
+private fun printV30Metrics(metrics: CallMetrics?, config: AppConfig) {
+    val responseTime = metrics?.responseTimeMs?.let { "${it} ms" } ?: "n/a"
+    val promptTokens = metrics?.promptTokens?.toString() ?: "n/a"
+    val completionTokens = metrics?.completionTokens?.toString() ?: "n/a"
+    val totalTokens = metrics?.totalTokens?.toString() ?: "n/a"
+
+    val estimatedCost = estimateHuggingFaceCost(metrics, config)
+    val costText = estimatedCost?.let { "$${"%.6f".format(it)}" } ?: "n/a"
+
+    println("Метрики (V3.0 mode):")
+    println("Время ответа: $responseTime")
+    println("Токены: prompt=$promptTokens, completion=$completionTokens, total=$totalTokens")
+    println("Стоимость: $costText")
+}
+
+private fun estimateHuggingFaceCost(metrics: CallMetrics?, config: AppConfig): Double? {
+    val promptTokens = metrics?.promptTokens ?: return null
+    val completionTokens = metrics.completionTokens ?: return null
+    val inputPricePer1M = config.huggingFaceInputCostPer1M ?: return null
+    val outputPricePer1M = config.huggingFaceOutputCostPer1M ?: return null
+
+    val inputCost = (promptTokens / 1_000_000.0) * inputPricePer1M
+    val outputCost = (completionTokens / 1_000_000.0) * outputPricePer1M
+    return inputCost + outputCost
 }
 
 private fun printPrompt() {
