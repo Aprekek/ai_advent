@@ -29,6 +29,10 @@ class AppConfigTest {
         assertEquals("https://api.deepseek.com/v1", config.baseUrl)
         assertEquals("deepseek-chat", config.model)
         assertEquals("Russian", config.responseLanguage)
+        assertEquals("deepseek-v3", config.modelV30)
+        assertEquals("", config.huggingFaceApiKey)
+        assertEquals("https://router.huggingface.co/v1", config.huggingFaceBaseUrl)
+        assertEquals("deepseek-ai/DeepSeek-V3:novita", config.huggingFaceModelV30)
     }
 
     @Test
@@ -38,7 +42,11 @@ class AppConfigTest {
                 "DEEPSEEK_API_KEY" to "\"dsk_test\"",
                 "DEEPSEEK_BASE_URL" to "\"https://api.deepseek.com/v1\"",
                 "DEEPSEEK_MODEL" to "'deepseek-chat'",
-                "DEEPSEEK_RESPONSE_LANGUAGE" to "\"Russian\""
+                "DEEPSEEK_RESPONSE_LANGUAGE" to "\"Russian\"",
+                "DEEPSEEK_MODEL_V30" to "'deepseek-v3'",
+                "HUGGINGFACE_API_KEY" to "\"hf_test\"",
+                "HUGGINGFACE_BASE_URL" to "\"https://router.huggingface.co/v1\"",
+                "HUGGINGFACE_MODEL_V30" to "'deepseek-ai/DeepSeek-V3:novita'"
             )
         )
 
@@ -48,6 +56,10 @@ class AppConfigTest {
         assertEquals("https://api.deepseek.com/v1", config.baseUrl)
         assertEquals("deepseek-chat", config.model)
         assertEquals("Russian", config.responseLanguage)
+        assertEquals("deepseek-v3", config.modelV30)
+        assertEquals("hf_test", config.huggingFaceApiKey)
+        assertEquals("https://router.huggingface.co/v1", config.huggingFaceBaseUrl)
+        assertEquals("deepseek-ai/DeepSeek-V3:novita", config.huggingFaceModelV30)
     }
 
     private class MapEnvironmentProvider(

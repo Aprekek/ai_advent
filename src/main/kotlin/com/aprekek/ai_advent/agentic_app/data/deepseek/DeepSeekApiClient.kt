@@ -29,13 +29,14 @@ class DeepSeekApiClient(
         messages: List<DeepSeekMessage>,
         options: ChatRequestOptions = ChatRequestOptions.Standard
     ): String {
-        val response = httpClient.post(chatCompletionUrl()) {
+        val apiKey = options.apiKeyOverride?.trim().orEmpty().ifBlank { config.apiKey }
+        val response = httpClient.post(chatCompletionUrl(options.baseUrlOverride)) {
             header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             accept(ContentType.Application.Json)
-            bearerAuth(config.apiKey)
+            bearerAuth(apiKey)
             setBody(
                 DeepSeekChatCompletionRequest(
-                    model = config.model,
+                    model = options.modelOverride?.trim().orEmpty().ifBlank { config.model },
                     messages = listOf(
                         DeepSeekMessage(
                             role = "system",
@@ -57,7 +58,10 @@ class DeepSeekApiClient(
         return payload.choices.firstOrNull()?.message?.content?.trim().orEmpty()
     }
 
-    private fun chatCompletionUrl(): String = "${config.baseUrl.trimEnd('/')}/chat/completions"
+    private fun chatCompletionUrl(baseUrlOverride: String?): String {
+        val baseUrl = baseUrlOverride?.trim().orEmpty().ifBlank { config.baseUrl }
+        return "${baseUrl.trimEnd('/')}/chat/completions"
+    }
 
     private fun systemInstruction(language: String, extraInstruction: String?): String {
         val baseInstruction = "Always respond in $language unless the user explicitly requests another language."
