@@ -33,8 +33,6 @@ class AppConfigTest {
         assertEquals("", config.huggingFaceApiKey)
         assertEquals("https://router.huggingface.co/v1", config.huggingFaceBaseUrl)
         assertEquals("deepseek-ai/DeepSeek-V3:novita", config.huggingFaceModelV30)
-        assertEquals(null, config.huggingFaceInputCostPer1M)
-        assertEquals(null, config.huggingFaceOutputCostPer1M)
     }
 
     @Test
@@ -48,9 +46,7 @@ class AppConfigTest {
                 "DEEPSEEK_MODEL_V30" to "'deepseek-v3'",
                 "HUGGINGFACE_API_KEY" to "\"hf_test\"",
                 "HUGGINGFACE_BASE_URL" to "\"https://router.huggingface.co/v1\"",
-                "HUGGINGFACE_MODEL_V30" to "'deepseek-ai/DeepSeek-V3:novita'",
-                "HUGGINGFACE_INPUT_COST_PER_1M" to "\"0.8\"",
-                "HUGGINGFACE_OUTPUT_COST_PER_1M" to "'1.2'"
+                "HUGGINGFACE_MODEL_V30" to "'deepseek-ai/DeepSeek-V3:novita'"
             )
         )
 
@@ -64,8 +60,6 @@ class AppConfigTest {
         assertEquals("hf_test", config.huggingFaceApiKey)
         assertEquals("https://router.huggingface.co/v1", config.huggingFaceBaseUrl)
         assertEquals("deepseek-ai/DeepSeek-V3:novita", config.huggingFaceModelV30)
-        assertEquals(0.8, config.huggingFaceInputCostPer1M)
-        assertEquals(1.2, config.huggingFaceOutputCostPer1M)
     }
 
     private class MapEnvironmentProvider(

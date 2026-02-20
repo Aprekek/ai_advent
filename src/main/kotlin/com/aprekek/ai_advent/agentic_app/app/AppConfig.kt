@@ -8,9 +8,7 @@ data class AppConfig(
     val modelV30: String,
     val huggingFaceApiKey: String,
     val huggingFaceBaseUrl: String,
-    val huggingFaceModelV30: String,
-    val huggingFaceInputCostPer1M: Double? = null,
-    val huggingFaceOutputCostPer1M: Double? = null
+    val huggingFaceModelV30: String
 ) {
     companion object {
         private const val ApiKeyEnvName = "DEEPSEEK_API_KEY"
@@ -21,8 +19,6 @@ data class AppConfig(
         private const val HuggingFaceApiKeyEnvName = "HUGGINGFACE_API_KEY"
         private const val HuggingFaceBaseUrlEnvName = "HUGGINGFACE_BASE_URL"
         private const val HuggingFaceModelV30EnvName = "HUGGINGFACE_MODEL_V30"
-        private const val HuggingFaceInputCostPer1MEnvName = "HUGGINGFACE_INPUT_COST_PER_1M"
-        private const val HuggingFaceOutputCostPer1MEnvName = "HUGGINGFACE_OUTPUT_COST_PER_1M"
 
         private const val DefaultBaseUrl = "https://api.deepseek.com/v1"
         private const val DefaultModel = "deepseek-chat"
@@ -50,12 +46,6 @@ data class AppConfig(
                 .ifBlank { DefaultHuggingFaceBaseUrl }
             val huggingFaceModelV30 = environment.get(HuggingFaceModelV30EnvName).normalizedEnvValue()
                 .ifBlank { DefaultHuggingFaceModelV30 }
-            val huggingFaceInputCostPer1M = environment.get(HuggingFaceInputCostPer1MEnvName)
-                .normalizedEnvValue()
-                .toDoubleOrNull()
-            val huggingFaceOutputCostPer1M = environment.get(HuggingFaceOutputCostPer1MEnvName)
-                .normalizedEnvValue()
-                .toDoubleOrNull()
 
             return AppConfig(
                 apiKey = apiKey,
@@ -65,9 +55,7 @@ data class AppConfig(
                 modelV30 = modelV30,
                 huggingFaceApiKey = huggingFaceApiKey,
                 huggingFaceBaseUrl = huggingFaceBaseUrl,
-                huggingFaceModelV30 = huggingFaceModelV30,
-                huggingFaceInputCostPer1M = huggingFaceInputCostPer1M,
-                huggingFaceOutputCostPer1M = huggingFaceOutputCostPer1M
+                huggingFaceModelV30 = huggingFaceModelV30
             )
         }
 
