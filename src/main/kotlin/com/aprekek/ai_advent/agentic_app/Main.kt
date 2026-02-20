@@ -28,6 +28,9 @@ private const val UserPrompt = "you> "
 private const val AssistantPrefix = "assistant> "
 private const val ErrorPrefix = "error> "
 private const val SectionSeparator = "------------------------------------------------------------"
+private const val DeepSeekInputCostCacheHitPer1M = 0.028
+private const val DeepSeekInputCostCacheMissPer1M = 0.28
+private const val DeepSeekOutputCostPer1M = 0.42
 
 fun main() = runBlocking {
     clearTerminal()
@@ -76,6 +79,20 @@ fun main() = runBlocking {
                 println()
                 continue
             }
+            if (mode == ChatMode.DifferentModelsMetricsCompare) {
+                val shouldExit = runDifferentModelsMetricsCompareMode(
+                    stdinReader = stdinReader,
+                    chatRepository = chatRepository,
+                    apiClient = apiClient,
+                    config = config,
+                    mode = mode
+                )
+                if (shouldExit) {
+                    return@runBlocking
+                }
+                println()
+                continue
+            }
 
             val sendMessageUseCase = SendMessageUseCase(chatRepository)
             val shouldExit = runChatMode(stdinReader, sendMessageUseCase, config, mode, apiClient)
@@ -101,7 +118,7 @@ private fun selectMode(stdinReader: BufferedReader): ChatMode? {
         println("2 - Short mode (max tokens: 512, one paragraph, stop on empty line)")
         println("3 - Comparison mode")
         println("4 - Temperature diff mode")
-        println("5 - V3.0 mode")
+        println("5 - Different models metrics compare")
         println("q - Exit")
         print("> ")
         System.out.flush()
@@ -111,7 +128,7 @@ private fun selectMode(stdinReader: BufferedReader): ChatMode? {
             "2" -> return ChatMode.Short
             "3" -> return ChatMode.Comparison
             "4" -> return ChatMode.TemperatureDiff
-            "5" -> return ChatMode.V30
+            "5" -> return ChatMode.DifferentModelsMetricsCompare
             "q" -> return null
             else -> println("Unknown option $option. Please choose 1, 2, 3, 4, 5 or q.")
         }
@@ -153,35 +170,133 @@ private suspend fun runChatMode(
             continue
         }
 
-        val requestOptions = when (mode) {
-            ChatMode.V30 -> {
-                if (config.huggingFaceApiKey.isBlank()) {
-                    printMessageBlock(
-                        ErrorPrefix,
-                        "HUGGINGFACE_API_KEY is required for V3.0 mode. Set it and try again."
-                    )
-                    continue
-                }
-                mode.requestOptions.copy(
-                    apiKeyOverride = config.huggingFaceApiKey,
-                    baseUrlOverride = config.huggingFaceBaseUrl,
-                    modelOverride = config.huggingFaceModelV30
-                )
-            }
-            else -> mode.requestOptions
-        }
+        val requestOptions = mode.requestOptions
 
         val result = withLoadingIndicator {
             sendMessageUseCase(input, requestOptions)
         }
         result.onSuccess { response ->
             printMessageBlock(AssistantPrefix, response)
-            if (mode == ChatMode.V30) {
-                printV30Metrics(apiClient.lastCallMetrics, config)
-            }
         }.onFailure { exception ->
             printMessageBlock(ErrorPrefix, exception.message ?: "Unknown error")
         }
+    }
+}
+
+private suspend fun runDifferentModelsMetricsCompareMode(
+    stdinReader: BufferedReader,
+    chatRepository: DeepSeekChatRepository,
+    apiClient: DeepSeekApiClient,
+    config: AppConfig,
+    mode: ChatMode
+): Boolean {
+    if (config.huggingFaceApiKey.isBlank()) {
+        printMessageBlock(
+            ErrorPrefix,
+            "HUGGINGFACE_API_KEY is required for this mode. Set it and try again."
+        )
+        return false
+    }
+
+    println("${mode.displayName} enabled.")
+    println("No history is used in this mode.")
+    println("Enter one prompt. The mode will run 3 model stages and return to mode selection.")
+    println("Commands: /help, q (back to mode selection), /exit")
+
+    while (true) {
+        printPrompt()
+
+        val rawInput = stdinReader.readLine() ?: return true
+        val input = rawInput.trim()
+
+        if (input.isBlank()) {
+            continue
+        }
+
+        if (input.equals("/exit", ignoreCase = true)) {
+            return true
+        }
+
+        if (input.equals("q", ignoreCase = true)) {
+            println("Returning to mode selection...")
+            return false
+        }
+
+        if (input == "/help") {
+            printHelp(config.model, config.responseLanguage, mode)
+            continue
+        }
+
+        val stages = listOf(
+            ModelStage(
+                title = "Стадия 1: deepseek v3.2-reasoner",
+                options = ChatRequestOptions(modelOverride = "deepseek-reasoner"),
+                costMode = CostMode.DeepSeekReasonerPricing
+            ),
+            ModelStage(
+                title = "Стадия 2: deepseek v3.0",
+                options = ChatRequestOptions(
+                    modelOverride = config.huggingFaceModelV30,
+                    baseUrlOverride = config.huggingFaceBaseUrl,
+                    apiKeyOverride = config.huggingFaceApiKey
+                ),
+                costMode = CostMode.NotAvailable
+            ),
+            ModelStage(
+                title = "Стадия 3: meta-llama/Llama-3.1-8B-Instruct",
+                options = ChatRequestOptions(
+                    modelOverride = "meta-llama/Llama-3.1-8B-Instruct",
+                    baseUrlOverride = config.huggingFaceBaseUrl,
+                    apiKeyOverride = config.huggingFaceApiKey
+                ),
+                costMode = CostMode.NotAvailable
+            )
+        )
+
+        val stageOutputs = mutableListOf<StageOutput>()
+        for (stage in stages) {
+            println()
+            println(SectionSeparator)
+            println(stage.title)
+            val result = withLoadingIndicator {
+                requestOnce(
+                    chatRepository = chatRepository,
+                    prompt = input,
+                    options = stage.options
+                )
+            }
+
+            result.onSuccess { response ->
+                val metricsSnapshot = apiClient.lastCallMetrics
+                stageOutputs += StageOutput(
+                    stageTitle = stage.title,
+                    response = response,
+                    metrics = metricsSnapshot
+                )
+                printMessageBlock(AssistantPrefix, response)
+                printModelMetrics(metricsSnapshot, stage.costMode)
+            }.onFailure { exception ->
+                printMessageBlock(ErrorPrefix, exception.message ?: "Unknown error")
+                return false
+            }
+        }
+
+        println()
+        println(SectionSeparator)
+        println("Сравнение: качество, скорость, ресурсоёмкость")
+        val analysisPrompt = buildDifferentModelsAnalysisPrompt(input, stageOutputs)
+        val analysisResult = withLoadingIndicator {
+            requestOnce(chatRepository, analysisPrompt)
+        }
+        analysisResult.onSuccess { analysis ->
+            printMessageBlock(AssistantPrefix, analysis)
+        }.onFailure { exception ->
+            printMessageBlock(ErrorPrefix, exception.message ?: "Unknown error")
+        }
+
+        println()
+        println("Different models metrics compare completed. Returning to mode selection...")
+        return false
     }
 }
 
@@ -498,30 +613,64 @@ private fun printHelp(model: String, responseLanguage: String, mode: ChatMode) {
     println("Use /exit to stop the app.")
 }
 
-private fun printV30Metrics(metrics: CallMetrics?, config: AppConfig) {
+private fun printModelMetrics(metrics: CallMetrics?, costMode: CostMode) {
     val responseTime = metrics?.responseTimeMs?.let { "${it} ms" } ?: "n/a"
     val promptTokens = metrics?.promptTokens?.toString() ?: "n/a"
     val completionTokens = metrics?.completionTokens?.toString() ?: "n/a"
     val totalTokens = metrics?.totalTokens?.toString() ?: "n/a"
 
-    val estimatedCost = estimateHuggingFaceCost(metrics, config)
-    val costText = estimatedCost?.let { "$${"%.6f".format(it)}" } ?: "n/a"
-
-    println("Метрики (V3.0 mode):")
+    println("Метрики:")
     println("Время ответа: $responseTime")
     println("Токены: prompt=$promptTokens, completion=$completionTokens, total=$totalTokens")
-    println("Стоимость: $costText")
+    when (costMode) {
+        CostMode.DeepSeekReasonerPricing -> {
+            val prompt = metrics?.promptTokens
+            val completion = metrics?.completionTokens
+            if (prompt == null || completion == null) {
+                println("Стоимость: n/a")
+            } else {
+                val inputHit = (prompt / 1_000_000.0) * DeepSeekInputCostCacheHitPer1M
+                val inputMiss = (prompt / 1_000_000.0) * DeepSeekInputCostCacheMissPer1M
+                val outputCost = (completion / 1_000_000.0) * DeepSeekOutputCostPer1M
+                val totalHit = inputHit + outputCost
+                val totalMiss = inputMiss + outputCost
+                println("Стоимость (cache hit): $${"%.6f".format(totalHit)}")
+                println("Стоимость (cache miss): $${"%.6f".format(totalMiss)}")
+            }
+        }
+
+        CostMode.NotAvailable -> println("Стоимость: n/a")
+    }
 }
 
-private fun estimateHuggingFaceCost(metrics: CallMetrics?, config: AppConfig): Double? {
-    val promptTokens = metrics?.promptTokens ?: return null
-    val completionTokens = metrics.completionTokens ?: return null
-    val inputPricePer1M = config.huggingFaceInputCostPer1M ?: return null
-    val outputPricePer1M = config.huggingFaceOutputCostPer1M ?: return null
+private fun buildDifferentModelsAnalysisPrompt(
+    userPrompt: String,
+    stageOutputs: List<StageOutput>
+): String {
+    val outputsBlock = stageOutputs.joinToString(separator = "\n\n") { output ->
+        val metrics = output.metrics
+        """
+        ${output.stageTitle}
+        Метрики: время=${metrics?.responseTimeMs ?: "n/a"}ms, prompt_tokens=${metrics?.promptTokens ?: "n/a"}, completion_tokens=${metrics?.completionTokens ?: "n/a"}, total_tokens=${metrics?.totalTokens ?: "n/a"}
+        Ответ:
+        ${output.response}
+        """.trimIndent()
+    }
 
-    val inputCost = (promptTokens / 1_000_000.0) * inputPricePer1M
-    val outputCost = (completionTokens / 1_000_000.0) * outputPricePer1M
-    return inputCost + outputCost
+    return """
+        Пользовательский промпт:
+        $userPrompt
+        
+        Ниже ответы и метрики трёх моделей:
+        $outputsBlock
+        
+        Сделай краткое сравнение по критериям:
+        1) качество ответа
+        2) скорость
+        3) ресурсоёмкость (по токенам)
+        
+        Верни компактный вывод: лучший по качеству, лучший по скорости, самый экономный по токенам, и общий победитель.
+    """.trimIndent()
 }
 
 private fun printPrompt() {
@@ -631,8 +780,8 @@ private enum class ChatMode(
         displayName = "Temperature diff mode",
         requestOptions = ChatRequestOptions.Standard
     ),
-    V30(
-        displayName = "V3.0 mode (HuggingFace)",
+    DifferentModelsMetricsCompare(
+        displayName = "Different models metrics compare",
         requestOptions = ChatRequestOptions.Standard
     )
 }
@@ -646,3 +795,20 @@ private data class ComparisonOutput(
     val response: String,
     val generatedPrompt: String? = null
 )
+
+private data class ModelStage(
+    val title: String,
+    val options: ChatRequestOptions,
+    val costMode: CostMode
+)
+
+private data class StageOutput(
+    val stageTitle: String,
+    val response: String,
+    val metrics: CallMetrics?
+)
+
+private enum class CostMode {
+    DeepSeekReasonerPricing,
+    NotAvailable
+}
