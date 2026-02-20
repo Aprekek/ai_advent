@@ -21,7 +21,8 @@ data class DeepSeekMessage(
 
 @Serializable
 data class DeepSeekChatCompletionResponse(
-    val choices: List<DeepSeekChoice> = emptyList()
+    val choices: List<DeepSeekChoice> = emptyList(),
+    val usage: DeepSeekUsage? = null
 )
 
 @Serializable
@@ -37,4 +38,14 @@ data class DeepSeekErrorResponse(
 @Serializable
 data class DeepSeekError(
     val message: String? = null
+)
+
+@Serializable
+data class DeepSeekUsage(
+    @SerialName("prompt_tokens")
+    val promptTokens: Int? = null,
+    @SerialName("completion_tokens")
+    val completionTokens: Int? = null,
+    @SerialName("total_tokens")
+    val totalTokens: Int? = null
 )

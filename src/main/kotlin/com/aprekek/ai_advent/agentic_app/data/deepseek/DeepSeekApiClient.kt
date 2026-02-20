@@ -21,6 +21,10 @@ class DeepSeekApiClient(
     private val httpClient: HttpClient,
     private val config: AppConfig
 ) {
+    @Volatile
+    var lastCallMetrics: CallMetrics? = null
+        private set
+
     private val json = Json {
         ignoreUnknownKeys = true
     }
@@ -29,6 +33,7 @@ class DeepSeekApiClient(
         messages: List<DeepSeekMessage>,
         options: ChatRequestOptions = ChatRequestOptions.Standard
     ): String {
+        val startedAtMs = System.currentTimeMillis()
         val apiKey = options.apiKeyOverride?.trim().orEmpty().ifBlank { config.apiKey }
         val response = httpClient.post(chatCompletionUrl(options.baseUrlOverride)) {
             header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
@@ -55,6 +60,13 @@ class DeepSeekApiClient(
         }
 
         val payload = response.body<DeepSeekChatCompletionResponse>()
+        val elapsedMs = System.currentTimeMillis() - startedAtMs
+        lastCallMetrics = CallMetrics(
+            responseTimeMs = elapsedMs,
+            promptTokens = payload.usage?.promptTokens,
+            completionTokens = payload.usage?.completionTokens,
+            totalTokens = payload.usage?.totalTokens
+        )
         return payload.choices.firstOrNull()?.message?.content?.trim().orEmpty()
     }
 
@@ -89,3 +101,10 @@ class DeepSeekApiClient(
         return "DeepSeek API request failed with HTTP ${response.status.value}"
     }
 }
+
+data class CallMetrics(
+    val responseTimeMs: Long,
+    val promptTokens: Int?,
+    val completionTokens: Int?,
+    val totalTokens: Int?
+)
