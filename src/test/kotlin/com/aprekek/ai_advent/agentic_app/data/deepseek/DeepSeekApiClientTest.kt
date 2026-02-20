@@ -1,20 +1,21 @@
 package com.aprekek.ai_advent.agentic_app.data.deepseek
 
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
-import io.ktor.client.*
-import io.ktor.client.engine.mock.*
-import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
+import io.ktor.serialization.kotlinx.json.json
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 
 class DeepSeekApiClientTest {
     @Test
@@ -36,7 +37,11 @@ class DeepSeekApiClientTest {
                 apiKey = "dsk_test_key",
                 baseUrl = "https://api.deepseek.com/v1",
                 model = "deepseek-chat",
-                responseLanguage = "Russian"
+                responseLanguage = "Russian",
+                modelV30 = "deepseek-v3",
+                huggingFaceApiKey = "",
+                huggingFaceBaseUrl = "https://router.huggingface.co/v1",
+                huggingFaceModelV30 = "deepseek-ai/DeepSeek-V3:novita"
             )
         )
 
@@ -65,7 +70,11 @@ class DeepSeekApiClientTest {
                 apiKey = "bad_key",
                 baseUrl = "https://api.deepseek.com/v1",
                 model = "deepseek-chat",
-                responseLanguage = "Russian"
+                responseLanguage = "Russian",
+                modelV30 = "deepseek-v3",
+                huggingFaceApiKey = "",
+                huggingFaceBaseUrl = "https://router.huggingface.co/v1",
+                huggingFaceModelV30 = "deepseek-ai/DeepSeek-V3:novita"
             )
         )
 

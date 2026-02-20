@@ -4,17 +4,28 @@ data class AppConfig(
     val apiKey: String,
     val baseUrl: String,
     val model: String,
-    val responseLanguage: String
+    val responseLanguage: String,
+    val modelV30: String,
+    val huggingFaceApiKey: String,
+    val huggingFaceBaseUrl: String,
+    val huggingFaceModelV30: String
 ) {
     companion object {
         private const val ApiKeyEnvName = "DEEPSEEK_API_KEY"
         private const val BaseUrlEnvName = "DEEPSEEK_BASE_URL"
         private const val ModelEnvName = "DEEPSEEK_MODEL"
+        private const val ModelV30EnvName = "DEEPSEEK_MODEL_V30"
         private const val ResponseLanguageEnvName = "DEEPSEEK_RESPONSE_LANGUAGE"
+        private const val HuggingFaceApiKeyEnvName = "HUGGINGFACE_API_KEY"
+        private const val HuggingFaceBaseUrlEnvName = "HUGGINGFACE_BASE_URL"
+        private const val HuggingFaceModelV30EnvName = "HUGGINGFACE_MODEL_V30"
 
         private const val DefaultBaseUrl = "https://api.deepseek.com/v1"
         private const val DefaultModel = "deepseek-chat"
+        private const val DefaultModelV30 = "deepseek-v3"
         private const val DefaultResponseLanguage = "Russian"
+        private const val DefaultHuggingFaceBaseUrl = "https://router.huggingface.co/v1"
+        private const val DefaultHuggingFaceModelV30 = "deepseek-ai/DeepSeek-V3:novita"
 
         fun fromEnvironment(environment: EnvironmentProvider = SystemEnvironmentProvider): AppConfig {
             val apiKey = environment.get(ApiKeyEnvName).normalizedEnvValue()
@@ -26,14 +37,25 @@ data class AppConfig(
                 .ifBlank { DefaultBaseUrl }
             val model = environment.get(ModelEnvName).normalizedEnvValue()
                 .ifBlank { DefaultModel }
+            val modelV30 = environment.get(ModelV30EnvName).normalizedEnvValue()
+                .ifBlank { DefaultModelV30 }
             val responseLanguage = environment.get(ResponseLanguageEnvName).normalizedEnvValue()
                 .ifBlank { DefaultResponseLanguage }
+            val huggingFaceApiKey = environment.get(HuggingFaceApiKeyEnvName).normalizedEnvValue()
+            val huggingFaceBaseUrl = environment.get(HuggingFaceBaseUrlEnvName).normalizedEnvValue()
+                .ifBlank { DefaultHuggingFaceBaseUrl }
+            val huggingFaceModelV30 = environment.get(HuggingFaceModelV30EnvName).normalizedEnvValue()
+                .ifBlank { DefaultHuggingFaceModelV30 }
 
             return AppConfig(
                 apiKey = apiKey,
                 baseUrl = baseUrl,
                 model = model,
-                responseLanguage = responseLanguage
+                responseLanguage = responseLanguage,
+                modelV30 = modelV30,
+                huggingFaceApiKey = huggingFaceApiKey,
+                huggingFaceBaseUrl = huggingFaceBaseUrl,
+                huggingFaceModelV30 = huggingFaceModelV30
             )
         }
 

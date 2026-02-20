@@ -99,6 +99,7 @@ private fun selectMode(stdinReader: BufferedReader): ChatMode? {
         println("2 - Short mode (max tokens: 512, one paragraph, stop on empty line)")
         println("3 - Comparison mode")
         println("4 - Temperature diff mode")
+        println("5 - V3.0 mode")
         println("q - Exit")
         print("> ")
         System.out.flush()
@@ -108,8 +109,9 @@ private fun selectMode(stdinReader: BufferedReader): ChatMode? {
             "2" -> return ChatMode.Short
             "3" -> return ChatMode.Comparison
             "4" -> return ChatMode.TemperatureDiff
+            "5" -> return ChatMode.V30
             "q" -> return null
-            else -> println("Unknown option $option. Please choose 1, 2, 3, 4 or q.")
+            else -> println("Unknown option $option. Please choose 1, 2, 3, 4, 5 or q.")
         }
     }
 }
@@ -148,8 +150,26 @@ private suspend fun runChatMode(
             continue
         }
 
+        val requestOptions = when (mode) {
+            ChatMode.V30 -> {
+                if (config.huggingFaceApiKey.isBlank()) {
+                    printMessageBlock(
+                        ErrorPrefix,
+                        "HUGGINGFACE_API_KEY is required for V3.0 mode. Set it and try again."
+                    )
+                    continue
+                }
+                mode.requestOptions.copy(
+                    apiKeyOverride = config.huggingFaceApiKey,
+                    baseUrlOverride = config.huggingFaceBaseUrl,
+                    modelOverride = config.huggingFaceModelV30
+                )
+            }
+            else -> mode.requestOptions
+        }
+
         val result = withLoadingIndicator {
-            sendMessageUseCase(input, mode.requestOptions)
+            sendMessageUseCase(input, requestOptions)
         }
         result.onSuccess { response ->
             printMessageBlock(AssistantPrefix, response)
@@ -577,6 +597,10 @@ private enum class ChatMode(
     ),
     TemperatureDiff(
         displayName = "Temperature diff mode",
+        requestOptions = ChatRequestOptions.Standard
+    ),
+    V30(
+        displayName = "V3.0 mode (HuggingFace)",
         requestOptions = ChatRequestOptions.Standard
     )
 }
