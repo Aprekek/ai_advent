@@ -13,7 +13,7 @@ enum class PricingMode {
 data class ModelVariant(
     val title: String,
     val provider: ProviderType,
-    val modelId: String,
+    val modelId: ModelId,
     val pricingMode: PricingMode
 )
 

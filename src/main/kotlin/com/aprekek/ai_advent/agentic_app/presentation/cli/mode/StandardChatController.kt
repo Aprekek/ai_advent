@@ -1,6 +1,6 @@
 package com.aprekek.ai_advent.agentic_app.presentation.cli.mode
 
-import com.aprekek.ai_advent.agentic_app.app.AppConfig
+import com.aprekek.ai_advent.agentic_app.domain.port.ConfigProvider
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.AssistantPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ChatMode
@@ -14,7 +14,7 @@ import java.util.UUID
 
 class StandardChatController(
     private val stdinReader: BufferedReader,
-    private val config: AppConfig,
+    private val configProvider: ConfigProvider,
     private val mode: ChatMode,
     private val sendMessageUseCase: SendMessageUseCase,
     private val commandParser: CommandParser,
@@ -40,7 +40,7 @@ class StandardChatController(
                 }
 
                 ParsedInput.Help -> {
-                    consoleView.printHelp(config.model, config.responseLanguage, mode)
+                    consoleView.printHelp(configProvider.model(), configProvider.responseLanguage(), mode)
                     continue
                 }
 

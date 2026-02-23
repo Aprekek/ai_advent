@@ -1,0 +1,8 @@
+prefix_rule(
+    pattern=["git", "add"],
+    decision="allow",
+    match=[
+        "git add *",
+        "git add src/Main.kt",
+    ]
+)

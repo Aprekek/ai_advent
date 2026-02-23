@@ -1,4 +1,4 @@
-package com.aprekek.ai_advent.agentic_app.app
+package com.aprekek.ai_advent.agentic_app.data.config
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -7,11 +7,10 @@ import kotlin.test.assertFailsWith
 class AppConfigTest {
     @Test
     fun `throws when api key is missing`() {
-        val env = mapOf<String, String>()
-        val provider = MapEnvironmentProvider(env)
+        val provider = MapEnvironmentProvider(emptyMap())
 
         assertFailsWith<IllegalArgumentException> {
-            AppConfig.fromEnvironment(provider)
+            EnvConfigProvider.fromEnvironment(provider)
         }
     }
 
@@ -23,7 +22,7 @@ class AppConfigTest {
             )
         )
 
-        val config = AppConfig.fromEnvironment(provider)
+        val config = EnvConfigProvider.fromEnvironment(provider)
 
         assertEquals("dsk_test", config.apiKey)
         assertEquals("https://api.deepseek.com/v1", config.baseUrl)
@@ -50,7 +49,7 @@ class AppConfigTest {
             )
         )
 
-        val config = AppConfig.fromEnvironment(provider)
+        val config = EnvConfigProvider.fromEnvironment(provider)
 
         assertEquals("dsk_test", config.apiKey)
         assertEquals("https://api.deepseek.com/v1", config.baseUrl)
