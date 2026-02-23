@@ -1,5 +1,10 @@
-package com.aprekek.ai_advent.agentic_app.domain
+package com.aprekek.ai_advent.agentic_app.domain.usecase
 
+import com.aprekek.ai_advent.agentic_app.data.state.InMemoryConversationState
+import com.aprekek.ai_advent.agentic_app.domain.model.ChatMessage
+import com.aprekek.ai_advent.agentic_app.domain.model.ChatRole
+import com.aprekek.ai_advent.agentic_app.domain.model.GenerationOptions
+import com.aprekek.ai_advent.agentic_app.domain.port.ChatGateway
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -10,10 +15,10 @@ import kotlinx.coroutines.test.runTest
 class SendMessageUseCaseTest {
     @Test
     fun `returns repository response for valid input`() = runTest {
-        val repository = CapturingChatRepository(responses = mutableListOf("Hello from model"))
-        val useCase = SendMessageUseCase(repository)
+        val gateway = CapturingChatGateway(responses = mutableListOf("Hello from model"))
+        val useCase = SendMessageUseCase(gateway, InMemoryConversationState())
 
-        val result = useCase("Hello")
+        val result = useCase(sessionId = "s1", rawInput = "Hello")
 
         assertTrue(result.isSuccess)
         assertEquals("Hello from model", result.getOrNull())
@@ -21,28 +26,28 @@ class SendMessageUseCaseTest {
 
     @Test
     fun `returns error for blank input`() = runTest {
-        val repository = CapturingChatRepository(responses = mutableListOf("ignored"))
-        val useCase = SendMessageUseCase(repository)
+        val gateway = CapturingChatGateway(responses = mutableListOf("ignored"))
+        val useCase = SendMessageUseCase(gateway, InMemoryConversationState())
 
-        val result = useCase("   ")
+        val result = useCase(sessionId = "s1", rawInput = "   ")
 
         assertTrue(result.isFailure)
         assertIs<IllegalArgumentException>(result.exceptionOrNull())
-        assertNull(repository.lastSentMessages)
+        assertNull(gateway.lastSentMessages)
     }
 
     @Test
     fun `sends previous turn context on second request`() = runTest {
-        val repository = CapturingChatRepository(
+        val gateway = CapturingChatGateway(
             responses = mutableListOf("first answer", "second answer")
         )
-        val useCase = SendMessageUseCase(repository)
+        val useCase = SendMessageUseCase(gateway, InMemoryConversationState())
 
-        useCase("first question")
-        val secondCall = useCase("second question")
+        useCase(sessionId = "s1", rawInput = "first question")
+        val secondCall = useCase(sessionId = "s1", rawInput = "second question")
 
         assertTrue(secondCall.isSuccess)
-        val secondRequestMessages = repository.sentRequests[1]
+        val secondRequestMessages = gateway.sentRequests[1]
 
         assertEquals(3, secondRequestMessages.size)
         assertEquals(ChatRole.User, secondRequestMessages[0].role)
@@ -55,29 +60,29 @@ class SendMessageUseCaseTest {
 
     @Test
     fun `passes request options to repository`() = runTest {
-        val repository = CapturingChatRepository(responses = mutableListOf("ok"))
-        val useCase = SendMessageUseCase(repository)
-        val options = ChatRequestOptions(
+        val gateway = CapturingChatGateway(responses = mutableListOf("ok"))
+        val useCase = SendMessageUseCase(gateway, InMemoryConversationState())
+        val options = GenerationOptions(
             maxTokens = 512,
             stopSequences = listOf("\n\n"),
-            extraSystemInstruction = "One paragraph only."
+            extraInstruction = "One paragraph only."
         )
 
-        useCase("question", options)
+        useCase(sessionId = "s1", rawInput = "question", options = options)
 
-        assertEquals(options, repository.sentOptions.single())
+        assertEquals(options, gateway.sentOptions.single())
     }
 
-    private class CapturingChatRepository(
+    private class CapturingChatGateway(
         private val responses: MutableList<String>
-    ) : ChatRepository {
+    ) : ChatGateway {
         val sentRequests = mutableListOf<List<ChatMessage>>()
-        val sentOptions = mutableListOf<ChatRequestOptions>()
+        val sentOptions = mutableListOf<GenerationOptions>()
 
         val lastSentMessages: List<ChatMessage>?
             get() = sentRequests.lastOrNull()
 
-        override suspend fun sendMessage(messages: List<ChatMessage>, options: ChatRequestOptions): String {
+        override suspend fun generate(messages: List<ChatMessage>, options: GenerationOptions): String {
             sentRequests += messages
             sentOptions += options
             return responses.removeFirst()

@@ -1,26 +1,35 @@
 package com.aprekek.ai_advent.agentic_app.presentation.cli
 
 import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekChatRepository
-import com.aprekek.ai_advent.agentic_app.domain.ChatMessage
-import com.aprekek.ai_advent.agentic_app.domain.ChatRequestOptions
-import com.aprekek.ai_advent.agentic_app.domain.ChatRole
+import com.aprekek.ai_advent.agentic_app.data.deepseek.ProviderRequestContext
+import com.aprekek.ai_advent.agentic_app.domain.model.ChatMessage
+import com.aprekek.ai_advent.agentic_app.domain.model.ChatRole
+import com.aprekek.ai_advent.agentic_app.domain.model.GenerationOptions
 
 class SingleRequestExecutor(
     private val chatRepository: DeepSeekChatRepository
 ) {
     suspend fun execute(
         prompt: String,
-        options: ChatRequestOptions = ChatRequestOptions.Standard
+        options: GenerationOptions = GenerationOptions.Standard,
+        requestContext: ProviderRequestContext? = null
     ): Result<String> {
         val input = prompt.trim()
         if (input.isBlank()) {
             return Result.failure(IllegalArgumentException("Input must not be blank"))
         }
+
+        val messages = listOf(ChatMessage(role = ChatRole.User, content = input))
         return runCatching {
-            chatRepository.sendMessage(
-                messages = listOf(ChatMessage(role = ChatRole.User, content = input)),
-                options = options
-            ).trim()
+            if (requestContext == null) {
+                chatRepository.generate(messages = messages, options = options)
+            } else {
+                chatRepository.generateWithContext(
+                    messages = messages,
+                    options = options,
+                    requestContext = requestContext
+                )
+            }.trim()
         }.mapCatching { output ->
             if (output.isBlank()) {
                 throw IllegalStateException("DeepSeek returned an empty response")
