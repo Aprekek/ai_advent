@@ -1,7 +1,7 @@
 package com.aprekek.ai_advent.agentic_app.presentation.cli.mode
 
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
-import com.aprekek.ai_advent.agentic_app.domain.ChatRequestOptions
+import com.aprekek.ai_advent.agentic_app.domain.model.GenerationOptions
 import com.aprekek.ai_advent.agentic_app.presentation.cli.AssistantPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ChatMode
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CommandParser
@@ -22,7 +22,7 @@ class ComparisonController(
     private val requestExecutor: SingleRequestExecutor
 ) {
     suspend fun run(): Boolean {
-        val comparisonModeOptions = ChatRequestOptions(maxTokens = 2048)
+        val comparisonModeOptions = GenerationOptions(maxTokens = 2048)
 
         println("${mode.displayName} enabled.")
         println("No history is used in this mode.")

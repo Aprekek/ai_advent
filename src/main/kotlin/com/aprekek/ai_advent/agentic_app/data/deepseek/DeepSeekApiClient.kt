@@ -1,7 +1,7 @@
 package com.aprekek.ai_advent.agentic_app.data.deepseek
 
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
-import com.aprekek.ai_advent.agentic_app.domain.ChatRequestOptions
+import com.aprekek.ai_advent.agentic_app.domain.model.GenerationOptions
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.accept
@@ -31,22 +31,22 @@ class DeepSeekApiClient(
 
     suspend fun sendMessages(
         messages: List<DeepSeekMessage>,
-        options: ChatRequestOptions = ChatRequestOptions.Standard
+        options: GenerationOptions = GenerationOptions.Standard,
+        requestContext: ProviderRequestContext = defaultRequestContext()
     ): String {
         val startedAtMs = System.currentTimeMillis()
-        val apiKey = options.apiKeyOverride?.trim().orEmpty().ifBlank { config.apiKey }
-        val response = httpClient.post(chatCompletionUrl(options.baseUrlOverride)) {
+        val response = httpClient.post(chatCompletionUrl(requestContext.baseUrl)) {
             header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             accept(ContentType.Application.Json)
-            bearerAuth(apiKey)
+            bearerAuth(requestContext.apiKey)
             setBody(
                 DeepSeekChatCompletionRequest(
-                    model = options.modelOverride?.trim().orEmpty().ifBlank { config.model },
+                    model = requestContext.model,
                     messages = listOf(
                         DeepSeekMessage(
                             role = "system",
-                            content = systemInstruction(config.responseLanguage, options.extraSystemInstruction)
-                        ),
+                            content = systemInstruction(config.responseLanguage, options.extraInstruction)
+                        )
                     ) + messages,
                     maxTokens = options.maxTokens,
                     stop = options.stopSequences.takeIf { it.isNotEmpty() },
@@ -70,10 +70,13 @@ class DeepSeekApiClient(
         return payload.choices.firstOrNull()?.message?.content?.trim().orEmpty()
     }
 
-    private fun chatCompletionUrl(baseUrlOverride: String?): String {
-        val baseUrl = baseUrlOverride?.trim().orEmpty().ifBlank { config.baseUrl }
-        return "${baseUrl.trimEnd('/')}/chat/completions"
-    }
+    private fun defaultRequestContext(): ProviderRequestContext = ProviderRequestContext(
+        model = config.model,
+        apiKey = config.apiKey,
+        baseUrl = config.baseUrl
+    )
+
+    private fun chatCompletionUrl(baseUrl: String): String = "${baseUrl.trimEnd('/')}/chat/completions"
 
     private fun systemInstruction(language: String, extraInstruction: String?): String {
         val baseInstruction = "Always respond in $language unless the user explicitly requests another language."

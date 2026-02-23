@@ -3,7 +3,8 @@ package com.aprekek.ai_advent.agentic_app
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
 import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekApiClient
 import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekChatRepository
-import com.aprekek.ai_advent.agentic_app.domain.SendMessageUseCase
+import com.aprekek.ai_advent.agentic_app.data.state.InMemoryConversationState
+import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CliRunner
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CommandParser
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ConsoleView
@@ -53,6 +54,7 @@ fun main() = runBlocking {
     val loadingIndicator = LoadingIndicator()
     val modeMenu = ModeMenu()
     val requestExecutor = SingleRequestExecutor(chatRepository)
+    val conversationState = InMemoryConversationState()
 
     val cliRunner = CliRunner(
         stdinReader = stdinReader,
@@ -63,7 +65,10 @@ fun main() = runBlocking {
                 stdinReader = stdinReader,
                 config = config,
                 mode = mode,
-                sendMessageUseCase = SendMessageUseCase(chatRepository),
+                sendMessageUseCase = SendMessageUseCase(
+                    chatGateway = chatRepository,
+                    conversationState = conversationState
+                ),
                 commandParser = commandParser,
                 consoleView = consoleView,
                 loadingIndicator = loadingIndicator

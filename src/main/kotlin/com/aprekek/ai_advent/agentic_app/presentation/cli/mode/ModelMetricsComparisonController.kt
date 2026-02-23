@@ -3,7 +3,8 @@ package com.aprekek.ai_advent.agentic_app.presentation.cli.mode
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
 import com.aprekek.ai_advent.agentic_app.data.deepseek.CallMetrics
 import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekApiClient
-import com.aprekek.ai_advent.agentic_app.domain.ChatRequestOptions
+import com.aprekek.ai_advent.agentic_app.data.deepseek.ProviderRequestContext
+import com.aprekek.ai_advent.agentic_app.domain.model.GenerationOptions
 import com.aprekek.ai_advent.agentic_app.presentation.cli.AssistantPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ChatMode
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CommandParser
@@ -58,24 +59,31 @@ class ModelMetricsComparisonController(
                     val stages = listOf(
                         ModelStage(
                             title = "Стадия 1: deepseek v3.2-reasoner",
-                            options = ChatRequestOptions(modelOverride = "deepseek-reasoner"),
+                            options = GenerationOptions.Standard,
+                            requestContext = ProviderRequestContext(
+                                model = "deepseek-reasoner",
+                                apiKey = config.apiKey,
+                                baseUrl = config.baseUrl
+                            ),
                             costMode = CostMode.DeepSeekReasonerPricing
                         ),
                         ModelStage(
                             title = "Стадия 2: deepseek v3.0",
-                            options = ChatRequestOptions(
-                                modelOverride = config.huggingFaceModelV30,
-                                baseUrlOverride = config.huggingFaceBaseUrl,
-                                apiKeyOverride = config.huggingFaceApiKey
+                            options = GenerationOptions.Standard,
+                            requestContext = ProviderRequestContext(
+                                model = config.huggingFaceModelV30,
+                                apiKey = config.huggingFaceApiKey,
+                                baseUrl = config.huggingFaceBaseUrl
                             ),
                             costMode = CostMode.NotAvailable
                         ),
                         ModelStage(
                             title = "Стадия 3: meta-llama/Llama-3.1-8B-Instruct",
-                            options = ChatRequestOptions(
-                                modelOverride = "meta-llama/Llama-3.1-8B-Instruct",
-                                baseUrlOverride = config.huggingFaceBaseUrl,
-                                apiKeyOverride = config.huggingFaceApiKey
+                            options = GenerationOptions.Standard,
+                            requestContext = ProviderRequestContext(
+                                model = "meta-llama/Llama-3.1-8B-Instruct",
+                                apiKey = config.huggingFaceApiKey,
+                                baseUrl = config.huggingFaceBaseUrl
                             ),
                             costMode = CostMode.NotAvailable
                         )
@@ -87,7 +95,11 @@ class ModelMetricsComparisonController(
                         consoleView.printSectionSeparator()
                         println(stage.title)
                         val result = loadingIndicator.withLoadingIndicator {
-                            requestExecutor.execute(parsedInput.text, options = stage.options)
+                            requestExecutor.execute(
+                                prompt = parsedInput.text,
+                                options = stage.options,
+                                requestContext = stage.requestContext
+                            )
                         }
 
                         result.onSuccess { response ->
@@ -159,7 +171,8 @@ class ModelMetricsComparisonController(
 
 private data class ModelStage(
     val title: String,
-    val options: ChatRequestOptions,
+    val options: GenerationOptions,
+    val requestContext: ProviderRequestContext,
     val costMode: CostMode
 )
 

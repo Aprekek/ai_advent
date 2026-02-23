@@ -1,7 +1,7 @@
 package com.aprekek.ai_advent.agentic_app.presentation.cli.mode
 
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
-import com.aprekek.ai_advent.agentic_app.domain.SendMessageUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.AssistantPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ChatMode
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CommandParser
@@ -10,6 +10,7 @@ import com.aprekek.ai_advent.agentic_app.presentation.cli.ErrorPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.LoadingIndicator
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ParsedInput
 import java.io.BufferedReader
+import java.util.UUID
 
 class StandardChatController(
     private val stdinReader: BufferedReader,
@@ -20,6 +21,8 @@ class StandardChatController(
     private val consoleView: ConsoleView,
     private val loadingIndicator: LoadingIndicator
 ) {
+    private val sessionId = UUID.randomUUID().toString()
+
     suspend fun run(): Boolean {
         println("${mode.displayName} enabled.")
         println("Type your message and press Enter.")
@@ -43,7 +46,11 @@ class StandardChatController(
 
                 is ParsedInput.Message -> {
                     val result = loadingIndicator.withLoadingIndicator {
-                        sendMessageUseCase(parsedInput.text, mode.requestOptions)
+                        sendMessageUseCase(
+                            sessionId = sessionId,
+                            rawInput = parsedInput.text,
+                            options = mode.requestOptions
+                        )
                     }
                     result.onSuccess { response ->
                         consoleView.printMessageBlock(AssistantPrefix, response)

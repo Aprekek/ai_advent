@@ -1,7 +1,7 @@
 package com.aprekek.ai_advent.agentic_app.presentation.cli.mode
 
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
-import com.aprekek.ai_advent.agentic_app.domain.ChatRequestOptions
+import com.aprekek.ai_advent.agentic_app.domain.model.GenerationOptions
 import com.aprekek.ai_advent.agentic_app.presentation.cli.AssistantPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ChatMode
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CommandParser
@@ -50,7 +50,7 @@ class TemperatureDiffController(
                             execute = { userPrompt ->
                                 requestExecutor.execute(
                                     userPrompt,
-                                    options = ChatRequestOptions(temperature = 0.0)
+                                    options = GenerationOptions(temperature = 0.0)
                                 ).map { response ->
                                     TemperatureOutput(response = response)
                                 }
@@ -61,7 +61,7 @@ class TemperatureDiffController(
                             execute = { userPrompt ->
                                 requestExecutor.execute(
                                     userPrompt,
-                                    options = ChatRequestOptions(temperature = 1.0)
+                                    options = GenerationOptions(temperature = 1.0)
                                 ).map { response ->
                                     TemperatureOutput(response = response)
                                 }
@@ -72,7 +72,7 @@ class TemperatureDiffController(
                             execute = { userPrompt ->
                                 requestExecutor.execute(
                                     userPrompt,
-                                    options = ChatRequestOptions(temperature = 2.0)
+                                    options = GenerationOptions(temperature = 2.0)
                                 ).map { response ->
                                     TemperatureOutput(response = response)
                                 }
@@ -111,7 +111,7 @@ class TemperatureDiffController(
                         val comparisonResult = loadingIndicator.withLoadingIndicator {
                             requestExecutor.execute(
                                 comparisonPrompt,
-                                options = ChatRequestOptions(temperature = 0.0, maxTokens = 2048)
+                                options = GenerationOptions(temperature = 0.0, maxTokens = 2048)
                             )
                         }
                         comparisonResult.onSuccess { response ->
