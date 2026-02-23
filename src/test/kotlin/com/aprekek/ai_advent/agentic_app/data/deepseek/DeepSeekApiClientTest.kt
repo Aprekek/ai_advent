@@ -1,6 +1,5 @@
 package com.aprekek.ai_advent.agentic_app.data.deepseek
 
-import com.aprekek.ai_advent.agentic_app.app.AppConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -31,27 +30,21 @@ class DeepSeekApiClientTest {
             )
         }
 
-        val client = DeepSeekApiClient(
-            httpClient = testHttpClient(engine),
-            config = AppConfig(
-                apiKey = "dsk_test_key",
-                baseUrl = "https://api.deepseek.com/v1",
+        val client = DeepSeekApiClient(httpClient = testHttpClient(engine))
+
+        val result = client.sendChatCompletion(
+            request = DeepSeekChatCompletionRequest(
                 model = "deepseek-chat",
-                responseLanguage = "Russian",
-                modelV30 = "deepseek-v3",
-                huggingFaceApiKey = "",
-                huggingFaceBaseUrl = "https://router.huggingface.co/v1",
-                huggingFaceModelV30 = "deepseek-ai/DeepSeek-V3:novita"
+                messages = listOf(DeepSeekMessage(role = "user", content = "Hi"))
+            ),
+            requestContext = ProviderRequestContext(
+                model = "deepseek-chat",
+                apiKey = "dsk_test_key",
+                baseUrl = "https://api.deepseek.com/v1"
             )
         )
 
-        val result = client.sendMessages(
-            listOf(
-                DeepSeekMessage(role = "user", content = "Hi")
-            )
-        )
-
-        assertEquals("Hello", result)
+        assertEquals("Hello", result.choices.single().message.content)
     }
 
     @Test
@@ -64,24 +57,18 @@ class DeepSeekApiClientTest {
             )
         }
 
-        val client = DeepSeekApiClient(
-            httpClient = testHttpClient(engine),
-            config = AppConfig(
-                apiKey = "bad_key",
-                baseUrl = "https://api.deepseek.com/v1",
-                model = "deepseek-chat",
-                responseLanguage = "Russian",
-                modelV30 = "deepseek-v3",
-                huggingFaceApiKey = "",
-                huggingFaceBaseUrl = "https://router.huggingface.co/v1",
-                huggingFaceModelV30 = "deepseek-ai/DeepSeek-V3:novita"
-            )
-        )
+        val client = DeepSeekApiClient(httpClient = testHttpClient(engine))
 
         val exception = assertFailsWith<IllegalStateException> {
-            client.sendMessages(
-                listOf(
-                    DeepSeekMessage(role = "user", content = "Hi")
+            client.sendChatCompletion(
+                request = DeepSeekChatCompletionRequest(
+                    model = "deepseek-chat",
+                    messages = listOf(DeepSeekMessage(role = "user", content = "Hi"))
+                ),
+                requestContext = ProviderRequestContext(
+                    model = "deepseek-chat",
+                    apiKey = "bad_key",
+                    baseUrl = "https://api.deepseek.com/v1"
                 )
             )
         }

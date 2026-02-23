@@ -2,7 +2,7 @@ package com.aprekek.ai_advent.agentic_app
 
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
 import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekApiClient
-import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekChatRepository
+import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekGateway
 import com.aprekek.ai_advent.agentic_app.data.state.InMemoryConversationState
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CliRunner
@@ -47,8 +47,8 @@ fun main() = runBlocking {
         }
     }
 
-    val apiClient = DeepSeekApiClient(httpClient, config)
-    val chatRepository = DeepSeekChatRepository(apiClient)
+    val apiClient = DeepSeekApiClient(httpClient)
+    val chatRepository = DeepSeekGateway(apiClient, config)
     val commandParser = CommandParser()
     val consoleView = ConsoleView()
     val loadingIndicator = LoadingIndicator()
