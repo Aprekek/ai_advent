@@ -1,15 +1,15 @@
 package com.aprekek.ai_advent.agentic_app.presentation.cli.mode
 
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
-import com.aprekek.ai_advent.agentic_app.data.deepseek.CallMetrics
-import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekApiClient
-import com.aprekek.ai_advent.agentic_app.data.deepseek.ProviderRequestContext
-import com.aprekek.ai_advent.agentic_app.domain.model.GenerationOptions
+import com.aprekek.ai_advent.agentic_app.domain.model.ModelStageResult
+import com.aprekek.ai_advent.agentic_app.domain.model.ModelVariant
+import com.aprekek.ai_advent.agentic_app.domain.model.PricingMode
+import com.aprekek.ai_advent.agentic_app.domain.model.ProviderType
+import com.aprekek.ai_advent.agentic_app.domain.usecase.CompareModelsWithMetricsUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.AssistantPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ChatMode
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CommandParser
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ConsoleView
-import com.aprekek.ai_advent.agentic_app.presentation.cli.CostMode
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ErrorPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.LoadingIndicator
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ParsedInput
@@ -24,7 +24,7 @@ class ModelMetricsComparisonController(
     private val consoleView: ConsoleView,
     private val loadingIndicator: LoadingIndicator,
     private val requestExecutor: SingleRequestExecutor,
-    private val apiClient: DeepSeekApiClient
+    private val compareModelsWithMetricsUseCase: CompareModelsWithMetricsUseCase
 ) {
     suspend fun run(): Boolean {
         if (config.huggingFaceApiKey.isBlank()) {
@@ -57,64 +57,41 @@ class ModelMetricsComparisonController(
 
                 is ParsedInput.Message -> {
                     val stages = listOf(
-                        ModelStage(
+                        ModelVariant(
                             title = "Стадия 1: deepseek v3.2-reasoner",
-                            options = GenerationOptions.Standard,
-                            requestContext = ProviderRequestContext(
-                                model = "deepseek-reasoner",
-                                apiKey = config.apiKey,
-                                baseUrl = config.baseUrl
-                            ),
-                            costMode = CostMode.DeepSeekReasonerPricing
+                            provider = ProviderType.DeepSeek,
+                            modelId = "deepseek-reasoner",
+                            pricingMode = PricingMode.DeepSeekReasonerPricing
                         ),
-                        ModelStage(
+                        ModelVariant(
                             title = "Стадия 2: deepseek v3.0",
-                            options = GenerationOptions.Standard,
-                            requestContext = ProviderRequestContext(
-                                model = config.huggingFaceModelV30,
-                                apiKey = config.huggingFaceApiKey,
-                                baseUrl = config.huggingFaceBaseUrl
-                            ),
-                            costMode = CostMode.NotAvailable
+                            provider = ProviderType.HuggingFace,
+                            modelId = config.huggingFaceModelV30,
+                            pricingMode = PricingMode.NotAvailable
                         ),
-                        ModelStage(
+                        ModelVariant(
                             title = "Стадия 3: meta-llama/Llama-3.1-8B-Instruct",
-                            options = GenerationOptions.Standard,
-                            requestContext = ProviderRequestContext(
-                                model = "meta-llama/Llama-3.1-8B-Instruct",
-                                apiKey = config.huggingFaceApiKey,
-                                baseUrl = config.huggingFaceBaseUrl
-                            ),
-                            costMode = CostMode.NotAvailable
+                            provider = ProviderType.HuggingFace,
+                            modelId = "meta-llama/Llama-3.1-8B-Instruct",
+                            pricingMode = PricingMode.NotAvailable
                         )
                     )
 
-                    val stageOutputs = mutableListOf<StageOutput>()
-                    for (stage in stages) {
+                    val stageResult = loadingIndicator.withLoadingIndicator {
+                        compareModelsWithMetricsUseCase(parsedInput.text, stages)
+                    }
+
+                    val stageOutputs = stageResult.getOrElse { error ->
+                        consoleView.printMessageBlock(ErrorPrefix, error.message ?: "Unknown error")
+                        return false
+                    }
+
+                    stageOutputs.forEach { output ->
                         println()
                         consoleView.printSectionSeparator()
-                        println(stage.title)
-                        val result = loadingIndicator.withLoadingIndicator {
-                            requestExecutor.execute(
-                                prompt = parsedInput.text,
-                                options = stage.options,
-                                requestContext = stage.requestContext
-                            )
-                        }
-
-                        result.onSuccess { response ->
-                            val metricsSnapshot = apiClient.lastCallMetrics
-                            stageOutputs += StageOutput(
-                                stageTitle = stage.title,
-                                response = response,
-                                metrics = metricsSnapshot
-                            )
-                            consoleView.printMessageBlock(AssistantPrefix, response)
-                            consoleView.printModelMetrics(metricsSnapshot, stage.costMode)
-                        }.onFailure { exception ->
-                            consoleView.printMessageBlock(ErrorPrefix, exception.message ?: "Unknown error")
-                            return false
-                        }
+                        println(output.stageTitle)
+                        consoleView.printMessageBlock(AssistantPrefix, output.response)
+                        consoleView.printModelMetrics(output.metrics, output.pricingMode)
                     }
 
                     println()
@@ -140,7 +117,7 @@ class ModelMetricsComparisonController(
 
     private fun buildDifferentModelsAnalysisPrompt(
         userPrompt: String,
-        stageOutputs: List<StageOutput>
+        stageOutputs: List<ModelStageResult>
     ): String {
         val outputsBlock = stageOutputs.joinToString(separator = "\n\n") { output ->
             val metrics = output.metrics
@@ -168,16 +145,3 @@ class ModelMetricsComparisonController(
         """.trimIndent()
     }
 }
-
-private data class ModelStage(
-    val title: String,
-    val options: GenerationOptions,
-    val requestContext: ProviderRequestContext,
-    val costMode: CostMode
-)
-
-private data class StageOutput(
-    val stageTitle: String,
-    val response: String,
-    val metrics: CallMetrics?
-)
