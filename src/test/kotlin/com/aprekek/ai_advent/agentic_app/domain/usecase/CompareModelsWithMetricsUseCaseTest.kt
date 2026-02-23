@@ -55,6 +55,6 @@ class CompareModelsWithMetricsUseCaseTest {
     private class FixedMetricsProvider(
         private val metrics: Metrics
     ) : MetricsProvider {
-        override fun lastMetrics(): Metrics = metrics
+        override fun lastMetrics(provider: ProviderType): Metrics = metrics
     }
 }

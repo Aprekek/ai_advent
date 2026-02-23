@@ -54,7 +54,7 @@ class AppModule private constructor(
             val huggingFaceGateway = HuggingFaceGateway(huggingFaceApiClient, config)
 
             val modelExecutionGateway = UnifiedModelExecutionGateway(deepSeekGateway, huggingFaceGateway)
-            val metricsProvider = ApiClientMetricsProvider(deepSeekApiClient)
+            val metricsProvider = ApiClientMetricsProvider(deepSeekApiClient, huggingFaceApiClient)
 
             val sendMessageUseCase = SendMessageUseCase(
                 chatGateway = deepSeekGateway,

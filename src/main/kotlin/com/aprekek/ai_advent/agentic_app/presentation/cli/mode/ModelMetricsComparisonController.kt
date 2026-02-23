@@ -1,6 +1,7 @@
 package com.aprekek.ai_advent.agentic_app.presentation.cli.mode
 
 import com.aprekek.ai_advent.agentic_app.domain.model.ModelId
+import com.aprekek.ai_advent.agentic_app.domain.model.ModelStageResult
 import com.aprekek.ai_advent.agentic_app.domain.model.ModelVariant
 import com.aprekek.ai_advent.agentic_app.domain.model.PricingMode
 import com.aprekek.ai_advent.agentic_app.domain.model.ProviderType
@@ -79,19 +80,21 @@ class ModelMetricsComparisonController(
                         )
                     )
 
-                    val stageResult = loadingIndicator.withLoadingIndicator {
-                        compareModelsWithMetricsUseCase(parsedInput.text, stages)
-                    }
-
-                    val stageOutputs = stageResult.getOrElse { error ->
-                        consoleView.printMessageBlock(ErrorPrefix, error.message ?: "Unknown error")
-                        return false
-                    }
-
-                    stageOutputs.forEach { output ->
+                    val stageOutputs = mutableListOf<ModelStageResult>()
+                    for (stage in stages) {
                         println()
                         consoleView.printSectionSeparator()
-                        println(output.stageTitle)
+                        println(stage.title)
+                        val stageResult = loadingIndicator.withLoadingIndicator {
+                            compareModelsWithMetricsUseCase(parsedInput.text, listOf(stage))
+                        }
+                        val output = stageResult.getOrElse { error ->
+                            consoleView.printMessageBlock(ErrorPrefix, error.message ?: "Unknown error")
+                            return false
+                        }.first()
+
+                        stageOutputs += output
+                        println()
                         consoleView.printMessageBlock(AssistantPrefix, output.response)
                         consoleView.printModelMetrics(output.metrics, output.pricingMode)
                     }

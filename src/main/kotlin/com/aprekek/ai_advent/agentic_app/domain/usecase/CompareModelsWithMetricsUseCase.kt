@@ -33,7 +33,7 @@ class CompareModelsWithMetricsUseCase(
                 ModelStageResult(
                     stageTitle = stage.title,
                     response = response,
-                    metrics = metricsProvider.lastMetrics(),
+                    metrics = metricsProvider.lastMetrics(stage.provider),
                     pricingMode = stage.pricingMode
                 )
             }
