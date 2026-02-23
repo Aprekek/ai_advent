@@ -1,9 +1,13 @@
 package com.aprekek.ai_advent.agentic_app
 
 import com.aprekek.ai_advent.agentic_app.app.AppConfig
+import com.aprekek.ai_advent.agentic_app.data.deepseek.ApiClientMetricsProvider
 import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekApiClient
 import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekGateway
+import com.aprekek.ai_advent.agentic_app.data.provider.UnifiedModelExecutionGateway
+import com.aprekek.ai_advent.agentic_app.data.provider.huggingface.HuggingFaceGateway
 import com.aprekek.ai_advent.agentic_app.data.state.InMemoryConversationState
+import com.aprekek.ai_advent.agentic_app.domain.usecase.CompareModelsWithMetricsUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CliRunner
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CommandParser
@@ -48,12 +52,19 @@ fun main() = runBlocking {
     }
 
     val apiClient = DeepSeekApiClient(httpClient)
-    val chatRepository = DeepSeekGateway(apiClient, config)
+    val deepSeekGateway = DeepSeekGateway(apiClient, config)
+    val huggingFaceGateway = HuggingFaceGateway(apiClient, config)
+    val modelExecutionGateway = UnifiedModelExecutionGateway(deepSeekGateway, huggingFaceGateway)
+    val metricsProvider = ApiClientMetricsProvider(apiClient)
+    val compareModelsWithMetricsUseCase = CompareModelsWithMetricsUseCase(
+        modelExecutionGateway = modelExecutionGateway,
+        metricsProvider = metricsProvider
+    )
     val commandParser = CommandParser()
     val consoleView = ConsoleView()
     val loadingIndicator = LoadingIndicator()
     val modeMenu = ModeMenu()
-    val requestExecutor = SingleRequestExecutor(chatRepository)
+    val requestExecutor = SingleRequestExecutor(deepSeekGateway)
     val conversationState = InMemoryConversationState()
 
     val cliRunner = CliRunner(
@@ -66,7 +77,7 @@ fun main() = runBlocking {
                 config = config,
                 mode = mode,
                 sendMessageUseCase = SendMessageUseCase(
-                    chatGateway = chatRepository,
+                    chatGateway = deepSeekGateway,
                     conversationState = conversationState
                 ),
                 commandParser = commandParser,
@@ -105,7 +116,7 @@ fun main() = runBlocking {
                 consoleView = consoleView,
                 loadingIndicator = loadingIndicator,
                 requestExecutor = requestExecutor,
-                apiClient = apiClient
+                compareModelsWithMetricsUseCase = compareModelsWithMetricsUseCase
             )
         }
     )

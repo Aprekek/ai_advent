@@ -31,8 +31,3 @@ enum class ChatMode(
         requestOptions = GenerationOptions.Standard
     )
 }
-
-enum class CostMode {
-    DeepSeekReasonerPricing,
-    NotAvailable
-}

@@ -1,6 +1,7 @@
 package com.aprekek.ai_advent.agentic_app.presentation.cli
 
-import com.aprekek.ai_advent.agentic_app.data.deepseek.CallMetrics
+import com.aprekek.ai_advent.agentic_app.domain.model.Metrics
+import com.aprekek.ai_advent.agentic_app.domain.model.PricingMode
 import java.io.BufferedReader
 
 class ConsoleView {
@@ -33,7 +34,7 @@ class ConsoleView {
         println(SectionSeparator)
     }
 
-    fun printModelMetrics(metrics: CallMetrics?, costMode: CostMode) {
+    fun printModelMetrics(metrics: Metrics?, costMode: PricingMode) {
         val responseTime = metrics?.responseTimeMs?.let { "${it} ms" } ?: "n/a"
         val promptTokens = metrics?.promptTokens?.toString() ?: "n/a"
         val completionTokens = metrics?.completionTokens?.toString() ?: "n/a"
@@ -43,7 +44,7 @@ class ConsoleView {
         println("Время ответа: $responseTime")
         println("Токены: prompt=$promptTokens, completion=$completionTokens, total=$totalTokens")
         when (costMode) {
-            CostMode.DeepSeekReasonerPricing -> {
+            PricingMode.DeepSeekReasonerPricing -> {
                 val prompt = metrics?.promptTokens
                 val completion = metrics?.completionTokens
                 if (prompt == null || completion == null) {
@@ -59,7 +60,7 @@ class ConsoleView {
                 }
             }
 
-            CostMode.NotAvailable -> println("Стоимость: n/a")
+            PricingMode.NotAvailable -> println("Стоимость: n/a")
         }
     }
 

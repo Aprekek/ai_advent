@@ -31,6 +31,22 @@ class DeepSeekGateway(
         return payload.choices.firstOrNull()?.message?.content?.trim().orEmpty()
     }
 
+    suspend fun generateWithModel(
+        modelId: String,
+        messages: List<ChatMessage>,
+        options: GenerationOptions
+    ): String {
+        return generateWithContext(
+            messages = messages,
+            options = options,
+            requestContext = ProviderRequestContext(
+                model = modelId,
+                apiKey = config.apiKey,
+                baseUrl = config.baseUrl
+            )
+        )
+    }
+
     private fun defaultRequestContext(): ProviderRequestContext = ProviderRequestContext(
         model = config.model,
         apiKey = config.apiKey,
