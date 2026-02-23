@@ -1,13 +1,13 @@
 package com.aprekek.ai_advent.agentic_app.presentation.cli
 
-import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekChatRepository
+import com.aprekek.ai_advent.agentic_app.data.deepseek.DeepSeekGateway
 import com.aprekek.ai_advent.agentic_app.data.deepseek.ProviderRequestContext
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatMessage
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatRole
 import com.aprekek.ai_advent.agentic_app.domain.model.GenerationOptions
 
 class SingleRequestExecutor(
-    private val chatRepository: DeepSeekChatRepository
+    private val chatRepository: DeepSeekGateway
 ) {
     suspend fun execute(
         prompt: String,
