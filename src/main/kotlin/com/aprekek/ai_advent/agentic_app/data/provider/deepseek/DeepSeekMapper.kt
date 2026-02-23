@@ -1,4 +1,4 @@
-package com.aprekek.ai_advent.agentic_app.data.deepseek
+package com.aprekek.ai_advent.agentic_app.data.provider.deepseek
 
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatMessage
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatRole

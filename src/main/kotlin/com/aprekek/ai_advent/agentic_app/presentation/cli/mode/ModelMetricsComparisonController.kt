@@ -1,11 +1,13 @@
 package com.aprekek.ai_advent.agentic_app.presentation.cli.mode
 
-import com.aprekek.ai_advent.agentic_app.app.AppConfig
-import com.aprekek.ai_advent.agentic_app.domain.model.ModelStageResult
+import com.aprekek.ai_advent.agentic_app.domain.model.ModelId
 import com.aprekek.ai_advent.agentic_app.domain.model.ModelVariant
 import com.aprekek.ai_advent.agentic_app.domain.model.PricingMode
 import com.aprekek.ai_advent.agentic_app.domain.model.ProviderType
+import com.aprekek.ai_advent.agentic_app.domain.port.ConfigProvider
+import com.aprekek.ai_advent.agentic_app.domain.usecase.BuildModelComparisonPromptUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.CompareModelsWithMetricsUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.GenerateSingleResponseUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.AssistantPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ChatMode
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CommandParser
@@ -13,21 +15,21 @@ import com.aprekek.ai_advent.agentic_app.presentation.cli.ConsoleView
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ErrorPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.LoadingIndicator
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ParsedInput
-import com.aprekek.ai_advent.agentic_app.presentation.cli.SingleRequestExecutor
 import java.io.BufferedReader
 
 class ModelMetricsComparisonController(
     private val stdinReader: BufferedReader,
-    private val config: AppConfig,
+    private val configProvider: ConfigProvider,
     private val mode: ChatMode,
     private val commandParser: CommandParser,
     private val consoleView: ConsoleView,
     private val loadingIndicator: LoadingIndicator,
-    private val requestExecutor: SingleRequestExecutor,
-    private val compareModelsWithMetricsUseCase: CompareModelsWithMetricsUseCase
+    private val compareModelsWithMetricsUseCase: CompareModelsWithMetricsUseCase,
+    private val buildModelComparisonPromptUseCase: BuildModelComparisonPromptUseCase,
+    private val generateSingleResponseUseCase: GenerateSingleResponseUseCase
 ) {
     suspend fun run(): Boolean {
-        if (config.huggingFaceApiKey.isBlank()) {
+        if (!configProvider.hasHuggingFaceApiKey()) {
             consoleView.printMessageBlock(
                 ErrorPrefix,
                 "HUGGINGFACE_API_KEY is required for this mode. Set it and try again."
@@ -51,7 +53,7 @@ class ModelMetricsComparisonController(
                 }
 
                 ParsedInput.Help -> {
-                    consoleView.printHelp(config.model, config.responseLanguage, mode)
+                    consoleView.printHelp(configProvider.model(), configProvider.responseLanguage(), mode)
                     continue
                 }
 
@@ -60,19 +62,19 @@ class ModelMetricsComparisonController(
                         ModelVariant(
                             title = "Стадия 1: deepseek v3.2-reasoner",
                             provider = ProviderType.DeepSeek,
-                            modelId = "deepseek-reasoner",
+                            modelId = ModelId("deepseek-reasoner"),
                             pricingMode = PricingMode.DeepSeekReasonerPricing
                         ),
                         ModelVariant(
                             title = "Стадия 2: deepseek v3.0",
                             provider = ProviderType.HuggingFace,
-                            modelId = config.huggingFaceModelV30,
+                            modelId = ModelId(configProvider.huggingFaceModelV30()),
                             pricingMode = PricingMode.NotAvailable
                         ),
                         ModelVariant(
                             title = "Стадия 3: meta-llama/Llama-3.1-8B-Instruct",
                             provider = ProviderType.HuggingFace,
-                            modelId = "meta-llama/Llama-3.1-8B-Instruct",
+                            modelId = ModelId("meta-llama/Llama-3.1-8B-Instruct"),
                             pricingMode = PricingMode.NotAvailable
                         )
                     )
@@ -97,9 +99,9 @@ class ModelMetricsComparisonController(
                     println()
                     consoleView.printSectionSeparator()
                     println("Сравнение: качество, скорость, ресурсоёмкость")
-                    val analysisPrompt = buildDifferentModelsAnalysisPrompt(parsedInput.text, stageOutputs)
+                    val analysisPrompt = buildModelComparisonPromptUseCase(parsedInput.text, stageOutputs)
                     val analysisResult = loadingIndicator.withLoadingIndicator {
-                        requestExecutor.execute(analysisPrompt)
+                        generateSingleResponseUseCase(analysisPrompt)
                     }
                     analysisResult.onSuccess { analysis ->
                         consoleView.printMessageBlock(AssistantPrefix, analysis)
@@ -113,35 +115,5 @@ class ModelMetricsComparisonController(
                 }
             }
         }
-    }
-
-    private fun buildDifferentModelsAnalysisPrompt(
-        userPrompt: String,
-        stageOutputs: List<ModelStageResult>
-    ): String {
-        val outputsBlock = stageOutputs.joinToString(separator = "\n\n") { output ->
-            val metrics = output.metrics
-            """
-            ${output.stageTitle}
-            Метрики: время=${metrics?.responseTimeMs ?: "n/a"}ms, prompt_tokens=${metrics?.promptTokens ?: "n/a"}, completion_tokens=${metrics?.completionTokens ?: "n/a"}, total_tokens=${metrics?.totalTokens ?: "n/a"}
-            Ответ:
-            ${output.response}
-            """.trimIndent()
-        }
-
-        return """
-            Пользовательский промпт:
-            $userPrompt
-            
-            Ниже ответы и метрики трёх моделей:
-            $outputsBlock
-            
-            Сделай краткое сравнение по критериям:
-            1) качество ответа
-            2) скорость
-            3) ресурсоёмкость (по токенам)
-            
-            Верни компактный вывод: лучший по качеству, лучший по скорости, самый экономный по токенам, и общий победитель.
-        """.trimIndent()
     }
 }

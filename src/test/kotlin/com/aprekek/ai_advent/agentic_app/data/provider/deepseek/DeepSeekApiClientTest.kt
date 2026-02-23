@@ -1,4 +1,4 @@
-package com.aprekek.ai_advent.agentic_app.data.deepseek
+package com.aprekek.ai_advent.agentic_app.data.provider.deepseek
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine

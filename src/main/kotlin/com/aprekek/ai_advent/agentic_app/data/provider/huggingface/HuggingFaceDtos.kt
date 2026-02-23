@@ -1,12 +1,12 @@
-package com.aprekek.ai_advent.agentic_app.data.deepseek
+package com.aprekek.ai_advent.agentic_app.data.provider.huggingface
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class DeepSeekChatCompletionRequest(
+data class HuggingFaceChatCompletionRequest(
     val model: String,
-    val messages: List<DeepSeekMessage>,
+    val messages: List<HuggingFaceMessage>,
     @SerialName("max_tokens")
     val maxTokens: Int? = null,
     val stop: List<String>? = null,
@@ -14,34 +14,24 @@ data class DeepSeekChatCompletionRequest(
 )
 
 @Serializable
-data class DeepSeekMessage(
+data class HuggingFaceMessage(
     val role: String = "",
     val content: String = ""
 )
 
 @Serializable
-data class DeepSeekChatCompletionResponse(
-    val choices: List<DeepSeekChoice> = emptyList(),
-    val usage: DeepSeekUsage? = null
+data class HuggingFaceChatCompletionResponse(
+    val choices: List<HuggingFaceChoice> = emptyList(),
+    val usage: HuggingFaceUsage? = null
 )
 
 @Serializable
-data class DeepSeekChoice(
-    val message: DeepSeekMessage = DeepSeekMessage()
+data class HuggingFaceChoice(
+    val message: HuggingFaceMessage = HuggingFaceMessage()
 )
 
 @Serializable
-data class DeepSeekErrorResponse(
-    val error: DeepSeekError? = null
-)
-
-@Serializable
-data class DeepSeekError(
-    val message: String? = null
-)
-
-@Serializable
-data class DeepSeekUsage(
+data class HuggingFaceUsage(
     @SerialName("prompt_tokens")
     val promptTokens: Int? = null,
     @SerialName("completion_tokens")

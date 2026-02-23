@@ -1,15 +1,20 @@
-package com.aprekek.ai_advent.agentic_app.app
+package com.aprekek.ai_advent.agentic_app.data.config
 
-data class AppConfig(
-    val apiKey: String,
-    val baseUrl: String,
-    val model: String,
-    val responseLanguage: String,
-    val modelV30: String,
-    val huggingFaceApiKey: String,
-    val huggingFaceBaseUrl: String,
-    val huggingFaceModelV30: String
-) {
+import com.aprekek.ai_advent.agentic_app.domain.port.ConfigProvider
+
+class EnvConfigProvider(
+    private val environmentProvider: EnvironmentProvider = SystemEnvironmentProvider
+) : ConfigProvider {
+    val appConfig: AppConfig = fromEnvironment(environmentProvider)
+
+    override fun model(): String = appConfig.model
+
+    override fun responseLanguage(): String = appConfig.responseLanguage
+
+    override fun huggingFaceModelV30(): String = appConfig.huggingFaceModelV30
+
+    override fun hasHuggingFaceApiKey(): Boolean = appConfig.huggingFaceApiKey.isNotBlank()
+
     companion object {
         private const val ApiKeyEnvName = "DEEPSEEK_API_KEY"
         private const val BaseUrlEnvName = "DEEPSEEK_BASE_URL"
@@ -33,12 +38,9 @@ data class AppConfig(
                 "$ApiKeyEnvName is required. Example: export $ApiKeyEnvName=\"dsk_...\""
             }
 
-            val baseUrl = environment.get(BaseUrlEnvName).normalizedEnvValue()
-                .ifBlank { DefaultBaseUrl }
-            val model = environment.get(ModelEnvName).normalizedEnvValue()
-                .ifBlank { DefaultModel }
-            val modelV30 = environment.get(ModelV30EnvName).normalizedEnvValue()
-                .ifBlank { DefaultModelV30 }
+            val baseUrl = environment.get(BaseUrlEnvName).normalizedEnvValue().ifBlank { DefaultBaseUrl }
+            val model = environment.get(ModelEnvName).normalizedEnvValue().ifBlank { DefaultModel }
+            val modelV30 = environment.get(ModelV30EnvName).normalizedEnvValue().ifBlank { DefaultModelV30 }
             val responseLanguage = environment.get(ResponseLanguageEnvName).normalizedEnvValue()
                 .ifBlank { DefaultResponseLanguage }
             val huggingFaceApiKey = environment.get(HuggingFaceApiKeyEnvName).normalizedEnvValue()
@@ -71,12 +73,4 @@ data class AppConfig(
             return trimmed
         }
     }
-}
-
-interface EnvironmentProvider {
-    fun get(name: String): String?
-}
-
-object SystemEnvironmentProvider : EnvironmentProvider {
-    override fun get(name: String): String? = System.getenv(name)
 }
