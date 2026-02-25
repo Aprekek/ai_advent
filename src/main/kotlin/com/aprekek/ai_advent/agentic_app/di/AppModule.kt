@@ -15,11 +15,14 @@ import com.aprekek.ai_advent.agentic_app.data.state.SqlDelightConversationState
 import com.aprekek.ai_advent.agentic_app.domain.usecase.BuildModelComparisonPromptUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.BuildTemperatureComparisonPromptUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.ClearConversationHistoryUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.ClearConversationUsageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.CompareModelsWithMetricsUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.ComparePromptStrategiesUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.CompareTemperatureUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.GenerateSingleResponseUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationHistoryUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationUsageUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.AddConversationUsageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CliRunner
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CommandParser
@@ -70,6 +73,9 @@ class AppModule private constructor(
             )
             val getConversationHistoryUseCase = GetConversationHistoryUseCase(conversationState)
             val clearConversationHistoryUseCase = ClearConversationHistoryUseCase(conversationState)
+            val getConversationUsageUseCase = GetConversationUsageUseCase(conversationState)
+            val addConversationUsageUseCase = AddConversationUsageUseCase(conversationState)
+            val clearConversationUsageUseCase = ClearConversationUsageUseCase(conversationState)
             val comparePromptStrategiesUseCase = ComparePromptStrategiesUseCase(deepSeekGateway)
             val compareTemperatureUseCase = CompareTemperatureUseCase(deepSeekGateway)
             val generateSingleResponseUseCase = GenerateSingleResponseUseCase(deepSeekGateway)
@@ -97,6 +103,10 @@ class AppModule private constructor(
                         sendMessageUseCase = sendMessageUseCase,
                         getConversationHistoryUseCase = getConversationHistoryUseCase,
                         clearConversationHistoryUseCase = clearConversationHistoryUseCase,
+                        getConversationUsageUseCase = getConversationUsageUseCase,
+                        addConversationUsageUseCase = addConversationUsageUseCase,
+                        clearConversationUsageUseCase = clearConversationUsageUseCase,
+                        metricsProvider = metricsProvider,
                         commandParser = commandParser,
                         consoleView = consoleView,
                         loadingIndicator = loadingIndicator
