@@ -1,6 +1,8 @@
 package com.aprekek.ai_advent.agentic_app.presentation.cli.mode
 
 import com.aprekek.ai_advent.agentic_app.domain.port.ConfigProvider
+import com.aprekek.ai_advent.agentic_app.domain.usecase.ClearConversationHistoryUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationHistoryUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.AssistantPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ChatMode
@@ -12,26 +14,47 @@ import com.aprekek.ai_advent.agentic_app.presentation.cli.ParsedInput
 import java.io.BufferedReader
 import java.util.UUID
 
+private const val StandardSessionId = "standard-mode-session"
+private val HistoryCommandRegex = Regex("^/history\\s+(\\d+)$")
+
 class StandardChatController(
     private val stdinReader: BufferedReader,
     private val configProvider: ConfigProvider,
     private val mode: ChatMode,
     private val sendMessageUseCase: SendMessageUseCase,
+    private val getConversationHistoryUseCase: GetConversationHistoryUseCase,
+    private val clearConversationHistoryUseCase: ClearConversationHistoryUseCase,
     private val commandParser: CommandParser,
     private val consoleView: ConsoleView,
     private val loadingIndicator: LoadingIndicator
 ) {
-    private val sessionId = UUID.randomUUID().toString()
+    private val sessionId = if (mode == ChatMode.Standard) StandardSessionId else UUID.randomUUID().toString()
 
     suspend fun run(): Boolean {
         println("${mode.displayName} enabled.")
         println("Type your message and press Enter.")
-        println("Commands: /help, q (back to mode selection), /exit")
+        val commandsLine = if (mode == ChatMode.Standard) {
+            "Commands: /help, /history N, /clear, q (back to mode selection), /exit"
+        } else {
+            "Commands: /help, q (back to mode selection), /exit"
+        }
+        println(commandsLine)
 
         while (true) {
             consoleView.printPrompt()
+            val rawInput = stdinReader.readLine()
+            val trimmedInput = rawInput?.trim().orEmpty()
 
-            when (val parsedInput = commandParser.parse(stdinReader.readLine())) {
+            if (mode == ChatMode.Standard && handleStandardCommands(trimmedInput)) {
+                continue
+            }
+
+            if (mode != ChatMode.Standard && (trimmedInput.startsWith("/history") || trimmedInput == "/clear")) {
+                consoleView.printMessageBlock(ErrorPrefix, "This command is available only in Standard mode.")
+                continue
+            }
+
+            when (val parsedInput = commandParser.parse(rawInput)) {
                 ParsedInput.Blank -> continue
                 ParsedInput.Exit -> return true
                 ParsedInput.Back -> {
@@ -60,5 +83,43 @@ class StandardChatController(
                 }
             }
         }
+    }
+
+    private fun handleStandardCommands(trimmedInput: String): Boolean {
+        if (trimmedInput == "/clear") {
+            clearConversationHistoryUseCase(sessionId)
+            consoleView.printMessageBlock(AssistantPrefix, "History cleared.")
+            return true
+        }
+
+        val match = HistoryCommandRegex.matchEntire(trimmedInput)
+        if (match != null) {
+            val dialogsToShow = match.groupValues[1].toIntOrNull()
+            if (dialogsToShow == null || dialogsToShow <= 0) {
+                consoleView.printMessageBlock(ErrorPrefix, "Usage: /history <positive number>")
+                return true
+            }
+
+            val history = getConversationHistoryUseCase(sessionId)
+            val dialogs = history.chunked(2).filter { it.size == 2 }.takeLast(dialogsToShow)
+            if (dialogs.isEmpty()) {
+                consoleView.printMessageBlock(AssistantPrefix, "History is empty.")
+                return true
+            }
+
+            dialogs.forEachIndexed { index, dialog ->
+                println()
+                println("Dialog ${index + 1}:")
+                consoleView.printMessageBlock("you> ", dialog[0].content)
+                consoleView.printMessageBlock(AssistantPrefix, dialog[1].content)
+            }
+            return true
+        }
+
+        if (trimmedInput.startsWith("/history")) {
+            consoleView.printMessageBlock(ErrorPrefix, "Usage: /history <positive number>")
+            return true
+        }
+        return false
     }
 }

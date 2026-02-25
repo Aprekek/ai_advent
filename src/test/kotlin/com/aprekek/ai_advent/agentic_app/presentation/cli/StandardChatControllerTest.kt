@@ -5,6 +5,8 @@ import com.aprekek.ai_advent.agentic_app.domain.model.ChatMessage
 import com.aprekek.ai_advent.agentic_app.domain.model.GenerationOptions
 import com.aprekek.ai_advent.agentic_app.domain.port.ChatGateway
 import com.aprekek.ai_advent.agentic_app.domain.port.ConfigProvider
+import com.aprekek.ai_advent.agentic_app.domain.usecase.ClearConversationHistoryUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationHistoryUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.mode.StandardChatController
 import java.io.BufferedReader
@@ -18,11 +20,14 @@ class StandardChatControllerTest {
     @Test
     fun `handles one message then returns to mode selection`() = runTest {
         val gateway = CapturingGateway(mutableListOf("ok"))
+        val conversationState = InMemoryConversationState()
         val controller = StandardChatController(
             stdinReader = BufferedReader(StringReader("hello\nq\n")),
             configProvider = FakeConfigProvider(),
             mode = ChatMode.Standard,
-            sendMessageUseCase = SendMessageUseCase(gateway, InMemoryConversationState()),
+            sendMessageUseCase = SendMessageUseCase(gateway, conversationState),
+            getConversationHistoryUseCase = GetConversationHistoryUseCase(conversationState),
+            clearConversationHistoryUseCase = ClearConversationHistoryUseCase(conversationState),
             commandParser = CommandParser(),
             consoleView = ConsoleView(),
             loadingIndicator = LoadingIndicator()

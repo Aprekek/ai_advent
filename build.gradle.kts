@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm") version "1.9.10"
     kotlin("plugin.serialization") version "1.9.10"
+    id("app.cash.sqldelight") version "2.0.2"
     application
 }
 
@@ -16,6 +17,8 @@ dependencies {
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.slf4j.simple)
+    implementation(libs.sqldelight.runtime.jvm)
+    implementation(libs.sqldelight.sqlite.driver)
 
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
@@ -38,4 +41,12 @@ tasks.withType<JavaExec>().configureEach {
     standardInput = System.`in`
     standardOutput = System.out
     errorOutput = System.err
+}
+
+sqldelight {
+    databases {
+        create("SessionHistoryDatabase") {
+            packageName.set("com.aprekek.ai_advent.agentic_app.data.state.db")
+        }
+    }
 }
