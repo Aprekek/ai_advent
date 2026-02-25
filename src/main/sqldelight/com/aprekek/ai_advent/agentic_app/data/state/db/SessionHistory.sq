@@ -23,3 +23,25 @@ WHERE session_id = ?;
 deleteById:
 DELETE FROM chat_messages
 WHERE id = ?;
+
+createUsageTable:
+CREATE TABLE IF NOT EXISTS session_usage_totals (
+  session_id TEXT NOT NULL PRIMARY KEY,
+  prompt_tokens INTEGER NOT NULL,
+  completion_tokens INTEGER NOT NULL,
+  total_tokens INTEGER NOT NULL
+);
+
+selectUsageBySession:
+SELECT session_id, prompt_tokens, completion_tokens, total_tokens
+FROM session_usage_totals
+WHERE session_id = ?;
+
+upsertUsageBySession:
+INSERT OR REPLACE INTO session_usage_totals(session_id, prompt_tokens, completion_tokens, total_tokens)
+VALUES (?, ?, ?, ?)
+;
+
+deleteUsageBySession:
+DELETE FROM session_usage_totals
+WHERE session_id = ?;

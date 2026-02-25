@@ -3,10 +3,16 @@ package com.aprekek.ai_advent.agentic_app.presentation.cli
 import com.aprekek.ai_advent.agentic_app.data.state.InMemoryConversationState
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatMessage
 import com.aprekek.ai_advent.agentic_app.domain.model.GenerationOptions
+import com.aprekek.ai_advent.agentic_app.domain.model.Metrics
+import com.aprekek.ai_advent.agentic_app.domain.model.ProviderType
 import com.aprekek.ai_advent.agentic_app.domain.port.ChatGateway
 import com.aprekek.ai_advent.agentic_app.domain.port.ConfigProvider
+import com.aprekek.ai_advent.agentic_app.domain.port.MetricsProvider
+import com.aprekek.ai_advent.agentic_app.domain.usecase.AddConversationUsageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.ClearConversationHistoryUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.ClearConversationUsageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationHistoryUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationUsageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.mode.StandardChatController
 import java.io.BufferedReader
@@ -21,6 +27,7 @@ class StandardChatControllerTest {
     fun `handles one message then returns to mode selection`() = runTest {
         val gateway = CapturingGateway(mutableListOf("ok"))
         val conversationState = InMemoryConversationState()
+        val metricsProvider = FakeMetricsProvider()
         val controller = StandardChatController(
             stdinReader = BufferedReader(StringReader("hello\nq\n")),
             configProvider = FakeConfigProvider(),
@@ -28,6 +35,10 @@ class StandardChatControllerTest {
             sendMessageUseCase = SendMessageUseCase(gateway, conversationState),
             getConversationHistoryUseCase = GetConversationHistoryUseCase(conversationState),
             clearConversationHistoryUseCase = ClearConversationHistoryUseCase(conversationState),
+            getConversationUsageUseCase = GetConversationUsageUseCase(conversationState),
+            addConversationUsageUseCase = AddConversationUsageUseCase(conversationState),
+            clearConversationUsageUseCase = ClearConversationUsageUseCase(conversationState),
+            metricsProvider = metricsProvider,
             commandParser = CommandParser(),
             consoleView = ConsoleView(),
             loadingIndicator = LoadingIndicator()
@@ -55,5 +66,14 @@ class StandardChatControllerTest {
         override fun responseLanguage(): String = "Russian"
         override fun huggingFaceModelV30(): String = "deepseek-ai/DeepSeek-V3:novita"
         override fun hasHuggingFaceApiKey(): Boolean = true
+    }
+
+    private class FakeMetricsProvider : MetricsProvider {
+        override fun lastMetrics(provider: ProviderType): Metrics = Metrics(
+            responseTimeMs = 100,
+            promptTokens = 10,
+            completionTokens = 20,
+            totalTokens = 30
+        )
     }
 }
