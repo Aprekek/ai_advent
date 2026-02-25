@@ -1,0 +1,25 @@
+CREATE TABLE chat_messages (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+selectBySession:
+SELECT id, session_id, role, content, created_at
+FROM chat_messages
+WHERE session_id = ?
+ORDER BY created_at ASC, id ASC;
+
+insertMessage:
+INSERT INTO chat_messages(session_id, role, content, created_at)
+VALUES (?, ?, ?, ?);
+
+deleteBySession:
+DELETE FROM chat_messages
+WHERE session_id = ?;
+
+deleteById:
+DELETE FROM chat_messages
+WHERE id = ?;

@@ -10,13 +10,16 @@ import com.aprekek.ai_advent.agentic_app.data.provider.deepseek.DeepSeekApiClien
 import com.aprekek.ai_advent.agentic_app.data.provider.deepseek.DeepSeekGateway
 import com.aprekek.ai_advent.agentic_app.data.provider.huggingface.HuggingFaceApiClient
 import com.aprekek.ai_advent.agentic_app.data.provider.huggingface.HuggingFaceGateway
-import com.aprekek.ai_advent.agentic_app.data.state.InMemoryConversationState
+import com.aprekek.ai_advent.agentic_app.data.state.JvmSqlDriverFactory
+import com.aprekek.ai_advent.agentic_app.data.state.SqlDelightConversationState
 import com.aprekek.ai_advent.agentic_app.domain.usecase.BuildModelComparisonPromptUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.BuildTemperatureComparisonPromptUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.ClearConversationHistoryUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.CompareModelsWithMetricsUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.ComparePromptStrategiesUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.CompareTemperatureUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.GenerateSingleResponseUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationHistoryUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CliRunner
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CommandParser
@@ -27,15 +30,18 @@ import com.aprekek.ai_advent.agentic_app.presentation.cli.mode.ComparisonControl
 import com.aprekek.ai_advent.agentic_app.presentation.cli.mode.ModelMetricsComparisonController
 import com.aprekek.ai_advent.agentic_app.presentation.cli.mode.StandardChatController
 import com.aprekek.ai_advent.agentic_app.presentation.cli.mode.TemperatureDiffController
+import app.cash.sqldelight.db.SqlDriver
 import io.ktor.client.HttpClient
 import java.io.BufferedReader
 import java.io.Closeable
 
 class AppModule private constructor(
     val cliRunner: CliRunner,
-    private val httpClient: HttpClient
+    private val httpClient: HttpClient,
+    private val sqlDriver: SqlDriver
 ) : Closeable {
     override fun close() {
+        sqlDriver.close()
         httpClient.close()
     }
 
@@ -52,14 +58,18 @@ class AppModule private constructor(
             val deepSeekGateway = DeepSeekGateway(deepSeekApiClient, config)
             val huggingFaceApiClient = HuggingFaceApiClient(httpClient)
             val huggingFaceGateway = HuggingFaceGateway(huggingFaceApiClient, config)
+            val sqlDriver = JvmSqlDriverFactory(dbPath = defaultSessionDbPath()).createDriver()
+            val conversationState = SqlDelightConversationState(sqlDriver)
 
             val modelExecutionGateway = UnifiedModelExecutionGateway(deepSeekGateway, huggingFaceGateway)
             val metricsProvider = ApiClientMetricsProvider(deepSeekApiClient, huggingFaceApiClient)
 
             val sendMessageUseCase = SendMessageUseCase(
                 chatGateway = deepSeekGateway,
-                conversationState = InMemoryConversationState()
+                conversationState = conversationState
             )
+            val getConversationHistoryUseCase = GetConversationHistoryUseCase(conversationState)
+            val clearConversationHistoryUseCase = ClearConversationHistoryUseCase(conversationState)
             val comparePromptStrategiesUseCase = ComparePromptStrategiesUseCase(deepSeekGateway)
             val compareTemperatureUseCase = CompareTemperatureUseCase(deepSeekGateway)
             val generateSingleResponseUseCase = GenerateSingleResponseUseCase(deepSeekGateway)
@@ -85,6 +95,8 @@ class AppModule private constructor(
                         configProvider = envConfigProvider,
                         mode = mode,
                         sendMessageUseCase = sendMessageUseCase,
+                        getConversationHistoryUseCase = getConversationHistoryUseCase,
+                        clearConversationHistoryUseCase = clearConversationHistoryUseCase,
                         commandParser = commandParser,
                         consoleView = consoleView,
                         loadingIndicator = loadingIndicator
@@ -129,7 +141,12 @@ class AppModule private constructor(
                 }
             )
 
-            return AppModule(cliRunner = cliRunner, httpClient = httpClient)
+            return AppModule(cliRunner = cliRunner, httpClient = httpClient, sqlDriver = sqlDriver)
+        }
+
+        private fun defaultSessionDbPath(): String {
+            val homeDir = System.getProperty("user.home").orEmpty().ifBlank { "." }
+            return "$homeDir/.apragent/session_history.db"
         }
     }
 }
