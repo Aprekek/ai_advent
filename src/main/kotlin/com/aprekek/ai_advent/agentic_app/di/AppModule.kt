@@ -23,6 +23,7 @@ import com.aprekek.ai_advent.agentic_app.domain.usecase.GenerateSingleResponseUs
 import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationHistoryUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationUsageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.AddConversationUsageUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.SendCompressedMessageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CliRunner
 import com.aprekek.ai_advent.agentic_app.presentation.cli.CommandParser
@@ -71,6 +72,10 @@ class AppModule private constructor(
                 chatGateway = deepSeekGateway,
                 conversationState = conversationState
             )
+            val sendCompressedMessageUseCase = SendCompressedMessageUseCase(
+                chatGateway = deepSeekGateway,
+                conversationState = conversationState
+            )
             val getConversationHistoryUseCase = GetConversationHistoryUseCase(conversationState)
             val clearConversationHistoryUseCase = ClearConversationHistoryUseCase(conversationState)
             val getConversationUsageUseCase = GetConversationUsageUseCase(conversationState)
@@ -101,6 +106,7 @@ class AppModule private constructor(
                         configProvider = envConfigProvider,
                         mode = mode,
                         sendMessageUseCase = sendMessageUseCase,
+                        sendCompressedMessageUseCase = sendCompressedMessageUseCase,
                         getConversationHistoryUseCase = getConversationHistoryUseCase,
                         clearConversationHistoryUseCase = clearConversationHistoryUseCase,
                         getConversationUsageUseCase = getConversationUsageUseCase,

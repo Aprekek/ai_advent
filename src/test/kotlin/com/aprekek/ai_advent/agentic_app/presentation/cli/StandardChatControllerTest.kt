@@ -13,6 +13,7 @@ import com.aprekek.ai_advent.agentic_app.domain.usecase.ClearConversationHistory
 import com.aprekek.ai_advent.agentic_app.domain.usecase.ClearConversationUsageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationHistoryUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationUsageUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.SendCompressedMessageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.mode.StandardChatController
 import java.io.BufferedReader
@@ -29,10 +30,11 @@ class StandardChatControllerTest {
         val conversationState = InMemoryConversationState()
         val metricsProvider = FakeMetricsProvider()
         val controller = StandardChatController(
-            stdinReader = BufferedReader(StringReader("hello\nq\n")),
+            stdinReader = BufferedReader(StringReader("1\nhello\nq\n")),
             configProvider = FakeConfigProvider(),
             mode = ChatMode.Standard,
             sendMessageUseCase = SendMessageUseCase(gateway, conversationState),
+            sendCompressedMessageUseCase = SendCompressedMessageUseCase(gateway, conversationState),
             getConversationHistoryUseCase = GetConversationHistoryUseCase(conversationState),
             clearConversationHistoryUseCase = ClearConversationHistoryUseCase(conversationState),
             getConversationUsageUseCase = GetConversationUsageUseCase(conversationState),
