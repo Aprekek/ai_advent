@@ -8,6 +8,7 @@ import com.aprekek.ai_advent.agentic_app.domain.usecase.ClearConversationHistory
 import com.aprekek.ai_advent.agentic_app.domain.usecase.ClearConversationUsageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationHistoryUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.GetConversationUsageUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.SendCompressedMessageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.cli.AssistantPrefix
 import com.aprekek.ai_advent.agentic_app.presentation.cli.ChatMode
@@ -25,11 +26,17 @@ import java.util.*
 private const val StandardSessionId = "standard-mode-session"
 private val HistoryCommandRegex = Regex("^/history\\s+(\\d+)$")
 
+private enum class StandardContextMode {
+    NoCompression,
+    Compressed
+}
+
 class StandardChatController(
     private val stdinReader: BufferedReader,
     private val configProvider: ConfigProvider,
     private val mode: ChatMode,
     private val sendMessageUseCase: SendMessageUseCase,
+    private val sendCompressedMessageUseCase: SendCompressedMessageUseCase,
     private val getConversationHistoryUseCase: GetConversationHistoryUseCase,
     private val clearConversationHistoryUseCase: ClearConversationHistoryUseCase,
     private val getConversationUsageUseCase: GetConversationUsageUseCase,
@@ -43,6 +50,13 @@ class StandardChatController(
     private val sessionId = if (mode == ChatMode.Standard) StandardSessionId else UUID.randomUUID().toString()
 
     suspend fun run(): Boolean {
+        val standardContextMode = if (mode == ChatMode.Standard) {
+            val selected = selectStandardContextMode() ?: return false
+            selected
+        } else {
+            StandardContextMode.NoCompression
+        }
+
         println("${mode.displayName} enabled.")
         println("Type your message and press Enter.")
         val commandsLine = if (mode == ChatMode.Standard) {
@@ -51,12 +65,14 @@ class StandardChatController(
             "Commands: /help, q (back to mode selection), /exit"
         }
         println(commandsLine)
+
         if (mode == ChatMode.Standard) {
+            val usage = getConversationUsageUseCase(sessionId)
             printUsageStats(
                 label = "Session totals",
-                promptTokens = getConversationUsageUseCase(sessionId).promptTokens,
-                completionTokens = getConversationUsageUseCase(sessionId).completionTokens,
-                totalTokens = getConversationUsageUseCase(sessionId).totalTokens
+                promptTokens = usage.promptTokens,
+                completionTokens = usage.completionTokens,
+                totalTokens = usage.totalTokens
             )
         }
 
@@ -65,7 +81,7 @@ class StandardChatController(
             val rawInput = stdinReader.readLine()
             val trimmedInput = rawInput?.trim().orEmpty()
 
-            if (mode == ChatMode.Standard && handleStandardCommands(trimmedInput)) {
+            if (mode == ChatMode.Standard && handleStandardCommands(trimmedInput, standardContextMode)) {
                 continue
             }
 
@@ -89,37 +105,24 @@ class StandardChatController(
 
                 is ParsedInput.Message -> {
                     val result = loadingIndicator.withLoadingIndicator {
-                        sendMessageUseCase(
-                            sessionId = sessionId,
-                            rawInput = parsedInput.text,
-                            options = mode.requestOptions
-                        )
+                        when (standardContextMode) {
+                            StandardContextMode.NoCompression -> sendMessageUseCase(
+                                sessionId = sessionId,
+                                rawInput = parsedInput.text,
+                                options = mode.requestOptions
+                            )
+
+                            StandardContextMode.Compressed -> sendCompressedMessageUseCase(
+                                sessionId = sessionId,
+                                rawInput = parsedInput.text,
+                                options = mode.requestOptions
+                            )
+                        }
                     }
                     result.onSuccess { response ->
                         consoleView.printMessageBlock(AssistantPrefix, response)
                         if (mode == ChatMode.Standard) {
-                            val metrics = metricsProvider.lastMetrics(ProviderType.DeepSeek)
-                            if (metrics != null) {
-                                val promptTokens = metrics.promptTokens ?: 0
-                                val completionTokens = metrics.completionTokens ?: 0
-                                val totalTokens = metrics.totalTokens ?: (promptTokens + completionTokens)
-                                addConversationUsageUseCase(
-                                    sessionId = sessionId,
-                                    promptTokens = promptTokens,
-                                    completionTokens = completionTokens,
-                                    totalTokens = totalTokens
-                                )
-                                val totalUsage = getConversationUsageUseCase(sessionId)
-                                printUsageStats("Current request", promptTokens, completionTokens, totalTokens)
-                                printUsageStats(
-                                    "Session totals",
-                                    totalUsage.promptTokens,
-                                    totalUsage.completionTokens,
-                                    totalUsage.totalTokens
-                                )
-                            } else {
-                                consoleView.printMessageBlock(ErrorPrefix, "Metrics are unavailable for this request.")
-                            }
+                            printRequestAndSessionUsage()
                         }
                     }.onFailure { exception ->
                         consoleView.printMessageBlock(ErrorPrefix, exception.message ?: "Unknown error")
@@ -129,9 +132,13 @@ class StandardChatController(
         }
     }
 
-    private fun handleStandardCommands(trimmedInput: String): Boolean {
+    private fun handleStandardCommands(
+        trimmedInput: String,
+        standardContextMode: StandardContextMode
+    ): Boolean {
         if (trimmedInput == "/clear") {
             clearConversationHistoryUseCase(sessionId)
+            sendCompressedMessageUseCase.clearCompressedHistory(sessionId)
             clearConversationUsageUseCase(sessionId)
             consoleView.printMessageBlock(AssistantPrefix, "History cleared.")
             return true
@@ -145,18 +152,33 @@ class StandardChatController(
                 return true
             }
 
-            val history = getConversationHistoryUseCase(sessionId)
-            val dialogs = history.chunked(2).filter { it.size == 2 }.takeLast(dialogsToShow)
-            if (dialogs.isEmpty()) {
-                consoleView.printMessageBlock(AssistantPrefix, "History is empty.")
-                return true
-            }
+            if (standardContextMode == StandardContextMode.NoCompression) {
+                val history = getConversationHistoryUseCase(sessionId)
+                val dialogs = history.chunked(2).filter { it.size == 2 }.takeLast(dialogsToShow)
+                if (dialogs.isEmpty()) {
+                    consoleView.printMessageBlock(AssistantPrefix, "History is empty.")
+                    return true
+                }
 
-            dialogs.forEachIndexed { index, dialog ->
-                println()
-                println("Dialog ${index + 1}:")
-                consoleView.printMessageBlock("you> ", dialog[0].content)
-                consoleView.printMessageBlock(AssistantPrefix, dialog[1].content)
+                dialogs.forEachIndexed { index, dialog ->
+                    println()
+                    println("Dialog ${index + 1}:")
+                    consoleView.printMessageBlock("you> ", dialog[0].content)
+                    consoleView.printMessageBlock(AssistantPrefix, dialog[1].content)
+                }
+            } else {
+                val blocks = sendCompressedMessageUseCase.compressedHistory(sessionId).takeLast(dialogsToShow)
+                if (blocks.isEmpty()) {
+                    consoleView.printMessageBlock(AssistantPrefix, "History is empty.")
+                    return true
+                }
+
+                blocks.forEachIndexed { index, block ->
+                    println()
+                    println("Context block ${index + 1}:")
+                    val prefix = if (block.role.name.equals("User", ignoreCase = true)) "you> " else AssistantPrefix
+                    consoleView.printMessageBlock(prefix, block.content)
+                }
             }
             return true
         }
@@ -166,6 +188,52 @@ class StandardChatController(
             return true
         }
         return false
+    }
+
+    private fun selectStandardContextMode(): StandardContextMode? {
+        while (true) {
+            println("Select Standard context mode:")
+            println("1 - No compression")
+            println("2 - Compression (every 5th sentence, 1 raw + up to 3 compressed)")
+            println("q - Back")
+            print("> ")
+            System.out.flush()
+
+            when (stdinReader.readLine()?.trim()?.lowercase()) {
+                "1" -> return StandardContextMode.NoCompression
+                "2" -> return StandardContextMode.Compressed
+                "q" -> return null
+                else -> println("Unknown option. Please choose 1, 2 or q.")
+            }
+        }
+    }
+
+    private fun printRequestAndSessionUsage() {
+        val metrics = metricsProvider.lastMetrics(ProviderType.DeepSeek)
+        if (metrics == null) {
+            consoleView.printMessageBlock(ErrorPrefix, "Metrics are unavailable for this request.")
+            return
+        }
+
+        val promptTokens = metrics.promptTokens ?: 0
+        val completionTokens = metrics.completionTokens ?: 0
+        val totalTokens = metrics.totalTokens ?: (promptTokens + completionTokens)
+
+        addConversationUsageUseCase(
+            sessionId = sessionId,
+            promptTokens = promptTokens,
+            completionTokens = completionTokens,
+            totalTokens = totalTokens
+        )
+
+        val totalUsage = getConversationUsageUseCase(sessionId)
+        printUsageStats("Current request", promptTokens, completionTokens, totalTokens)
+        printUsageStats(
+            "Session totals",
+            totalUsage.promptTokens,
+            totalUsage.completionTokens,
+            totalUsage.totalTokens
+        )
     }
 
     private fun printUsageStats(label: String, promptTokens: Int, completionTokens: Int, totalTokens: Int) {
