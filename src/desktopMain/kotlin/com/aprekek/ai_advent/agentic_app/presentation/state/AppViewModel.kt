@@ -202,6 +202,7 @@ class AppViewModel(
 
             state = state.copy(
                 isStreaming = true,
+                isAwaitingFirstToken = true,
                 reconnectAttempt = null,
                 selectedChatId = selectedChatId,
                 messages = state.messages + localUserMessage,
@@ -228,6 +229,7 @@ class AppViewModel(
 
                                 state = state.copy(
                                     messages = liveMessages + assistantMessage,
+                                    isAwaitingFirstToken = false,
                                     reconnectAttempt = null
                                 )
                             }
@@ -251,10 +253,15 @@ class AppViewModel(
                         messages = workspace.messages,
                         hasApiKey = workspace.hasApiKey,
                         reconnectAttempt = null,
+                        isAwaitingFirstToken = false,
                         isStreaming = false
                     )
                 } else {
-                    state = state.copy(isStreaming = false, reconnectAttempt = null)
+                    state = state.copy(
+                        isStreaming = false,
+                        isAwaitingFirstToken = false,
+                        reconnectAttempt = null
+                    )
                 }
             }
         }
@@ -263,6 +270,7 @@ class AppViewModel(
     fun stopStreaming() {
         streamJob?.cancel()
         streamJob = null
+        state = state.copy(isStreaming = false, isAwaitingFirstToken = false, reconnectAttempt = null)
     }
 
     fun clearError() {

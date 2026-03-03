@@ -15,6 +15,7 @@ data class AppUiState(
     val messages: List<ChatMessage> = emptyList(),
     val hasApiKey: Boolean = false,
     val isStreaming: Boolean = false,
+    val isAwaitingFirstToken: Boolean = false,
     val reconnectAttempt: Int? = null,
     val themeMode: ThemeMode = ThemeMode.LIGHT,
     val panelLayoutState: PanelLayoutState = PanelLayoutState(),

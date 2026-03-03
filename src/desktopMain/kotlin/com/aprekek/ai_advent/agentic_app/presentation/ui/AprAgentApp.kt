@@ -339,7 +339,7 @@ private fun ChatPanel(
     val listState = rememberLazyListState()
     val messages = state.messages
 
-    LaunchedEffect(messages.size) {
+    LaunchedEffect(messages.size, state.isAwaitingFirstToken) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.lastIndex)
         }
@@ -374,6 +374,26 @@ private fun ChatPanel(
                                     text = msg.content,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                                 )
+                            }
+                        }
+                    }
+                    if (state.isStreaming && state.isAwaitingFirstToken) {
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Start,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(color = MaterialTheme.colors.surface) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.width(16.dp))
+                                        Text("Агент думает...")
+                                    }
+                                }
                             }
                         }
                     }

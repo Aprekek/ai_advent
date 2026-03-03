@@ -97,7 +97,6 @@ class DeepSeekStreamingGateway(
             }
 
             val channel = response.bodyAsChannel()
-            val dataLines = mutableListOf<String>()
             var completed = false
 
             while (!channel.isClosedForRead) {
@@ -107,27 +106,24 @@ class DeepSeekStreamingGateway(
                 }
 
                 if (line.isBlank()) {
-                    if (dataLines.isNotEmpty()) {
-                        val payload = dataLines.joinToString(separator = "\n")
-                        dataLines.clear()
-
-                        when (val parsed = parser.parseDataPayload(payload)) {
-                            is ParsedSsePayload.Delta -> {
-                                if (parsed.content.isNotEmpty()) {
-                                    onDelta(parsed.content)
-                                }
-                            }
-                            ParsedSsePayload.Done -> {
-                                completed = true
-                                break
-                            }
-                        }
-                    }
                     continue
                 }
 
-                if (line.startsWith("data:")) {
-                    dataLines += line.removePrefix("data:").trimStart()
+                if (!line.startsWith("data:")) {
+                    continue
+                }
+
+                val payload = line.removePrefix("data:").trimStart()
+                when (val parsed = parser.parseDataPayload(payload)) {
+                    is ParsedSsePayload.Delta -> {
+                        if (parsed.content.isNotEmpty()) {
+                            onDelta(parsed.content)
+                        }
+                    }
+                    ParsedSsePayload.Done -> {
+                        completed = true
+                        break
+                    }
                 }
             }
 
