@@ -1,52 +1,66 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
 plugins {
-    kotlin("jvm") version "1.9.10"
-    kotlin("plugin.serialization") version "1.9.10"
-    id("app.cash.sqldelight") version "2.0.2"
-    application
+    kotlin("multiplatform") version "1.9.22"
+    kotlin("plugin.serialization") version "1.9.22"
+    id("org.jetbrains.compose") version "1.6.0"
 }
 
 repositories {
+    google()
     mavenCentral()
-}
-
-dependencies {
-    implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.kotlinx.serialization.json)
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.cio)
-    implementation(libs.ktor.client.content.negotiation)
-    implementation(libs.ktor.serialization.kotlinx.json)
-    implementation(libs.slf4j.simple)
-    implementation(libs.sqldelight.runtime.jvm)
-    implementation(libs.sqldelight.sqlite.driver)
-
-    testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.ktor.client.mock)
-    testImplementation(kotlin("test"))
-}
-
-application {
-    mainClass.set("com.aprekek.ai_advent.agentic_app.MainKt")
+    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
 }
 
 kotlin {
     jvmToolchain(17)
+
+    jvm("desktop") {
+        compilations.all {
+            kotlinOptions.jvmTarget = "17"
+        }
+        withJava()
+        testRuns["test"].executionTask.configure {
+            useJUnitPlatform()
+        }
+    }
+
+    sourceSets {
+        val desktopMain by getting {
+            dependencies {
+                implementation(compose.desktop.currentOs)
+                implementation(compose.foundation)
+                implementation(compose.material)
+                implementation(compose.materialIconsExtended)
+                implementation(libs.kotlinx.coroutines.core)
+                implementation(libs.kotlinx.coroutines.swing)
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.client.cio)
+                implementation(libs.ktor.client.content.negotiation)
+                implementation(libs.ktor.serialization.kotlinx.json)
+                implementation(libs.ktor.client.logging)
+                implementation(libs.koin.core)
+                implementation(libs.slf4j.simple)
+            }
+        }
+        val desktopTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.ktor.client.mock)
+            }
+        }
+    }
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
-
-tasks.withType<JavaExec>().configureEach {
-    standardInput = System.`in`
-    standardOutput = System.out
-    errorOutput = System.err
-}
-
-sqldelight {
-    databases {
-        create("SessionHistoryDatabase") {
-            packageName.set("com.aprekek.ai_advent.agentic_app.data.state.db")
+compose.desktop {
+    application {
+        mainClass = "com.aprekek.ai_advent.agentic_app.MainKt"
+        nativeDistributions {
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Exe)
+            packageName = "AprAgent"
+            packageVersion = "1.0.0"
         }
     }
 }
