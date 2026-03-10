@@ -98,11 +98,10 @@ class AppViewModel(
         }
     }
 
-    fun deleteActiveProfile() {
-        val profileId = state.activeProfileId ?: return
+    fun deleteProfile(profileId: String) {
         scope.launch {
             runCatching {
-                if (state.isStreaming) {
+                if (state.isStreaming && state.activeProfileId == profileId) {
                     stopStreaming()
                 }
 

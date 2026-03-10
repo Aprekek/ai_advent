@@ -86,7 +86,7 @@ fun AprAgentApp(viewModel: AppViewModel) {
             Toolbar(
                 state = state,
                 onCreateProfileClick = { showProfileDialog = true },
-                onDeleteProfileClick = viewModel::deleteActiveProfile,
+                onDeleteProfileClick = viewModel::deleteProfile,
                 onProfileSelected = viewModel::switchProfile,
                 onCreateChatClick = viewModel::createChat,
                 onApiKeyClick = { showApiKeyDialog = true },
@@ -170,7 +170,7 @@ fun AprAgentApp(viewModel: AppViewModel) {
 private fun Toolbar(
     state: com.aprekek.ai_advent.agentic_app.presentation.state.AppUiState,
     onCreateProfileClick: () -> Unit,
-    onDeleteProfileClick: () -> Unit,
+    onDeleteProfileClick: (String) -> Unit,
     onProfileSelected: (String) -> Unit,
     onCreateChatClick: () -> Unit,
     onApiKeyClick: () -> Unit,
@@ -200,7 +200,21 @@ private fun Toolbar(
                         showProfilesMenu = false
                         onProfileSelected(profile.id)
                     }) {
-                        Text(profile.name)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(profile.name, modifier = Modifier.weight(1f))
+                            IconButton(onClick = {
+                                showProfilesMenu = false
+                                onDeleteProfileClick(profile.id)
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Удалить профиль ${profile.name}"
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -208,12 +222,6 @@ private fun Toolbar(
 
         OutlinedButton(onClick = onCreateProfileClick) {
             Text("Новый профиль")
-        }
-        IconButton(onClick = onDeleteProfileClick) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Удалить профиль"
-            )
         }
         OutlinedButton(onClick = onCreateChatClick) {
             Text("Новый чат")
