@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.CircularProgressIndicator
@@ -464,10 +465,12 @@ private fun ChatPanel(
                                     MaterialTheme.colors.surface
                                 }
                             ) {
-                                Text(
-                                    text = msg.content,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                )
+                                SelectionContainer {
+                                    Text(
+                                        text = msg.content,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
                             }
                         }
                     }
