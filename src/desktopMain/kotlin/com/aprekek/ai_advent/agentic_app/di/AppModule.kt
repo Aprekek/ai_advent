@@ -18,6 +18,8 @@ import com.aprekek.ai_advent.agentic_app.domain.port.UserRepository
 import com.aprekek.ai_advent.agentic_app.domain.usecase.BootstrapAppUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.CreateChatUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.CreateProfileUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.DeleteChatUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.DeleteProfileUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.LoadWorkspaceUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SaveApiKeyUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SelectChatUseCase
@@ -75,7 +77,7 @@ private val appModule = module {
         }
     }
 
-    single<UserRepository> { FileUserRepository(get(), get(), get()) }
+    single<UserRepository> { FileUserRepository(get(), get(), get(), get()) }
     single<PreferencesRepository> { FilePreferencesRepository(get()) }
     single<ChatRepository> { FileChatRepository(get(), get(), get()) }
     single<ApiKeyRepository> { SecureApiKeyRepository(get()) }
@@ -84,8 +86,10 @@ private val appModule = module {
     single { LoadWorkspaceUseCase(get(), get(), get()) }
     single { BootstrapAppUseCase(get(), get(), get()) }
     single { CreateProfileUseCase(get(), get()) }
+    single { DeleteProfileUseCase(get(), get()) }
     single { SwitchProfileUseCase(get(), get()) }
     single { CreateChatUseCase(get(), get()) }
+    single { DeleteChatUseCase(get()) }
     single { SelectChatUseCase(get()) }
     single { SaveApiKeyUseCase(get()) }
     single { SetThemeUseCase(get()) }
@@ -96,9 +100,11 @@ private val appModule = module {
         AppViewModel(
             bootstrapAppUseCase = get(),
             createProfileUseCase = get(),
+            deleteProfileUseCase = get(),
             switchProfileUseCase = get(),
             loadWorkspaceUseCase = get(),
             createChatUseCase = get(),
+            deleteChatUseCase = get(),
             selectChatUseCase = get(),
             saveApiKeyUseCase = get(),
             setThemeUseCase = get(),

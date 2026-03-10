@@ -49,4 +49,33 @@ class FileChatRepositoryIsolationTest {
         assertEquals(1, messagesB.size)
         assertEquals("world", messagesB.first().content)
     }
+
+    @Test
+    fun `deletes chat with all messages`() = runTest {
+        val tempDir = Files.createTempDirectory("apragent-delete-chat-test")
+        val directories = AppDirectories(tempDir)
+        val repository = FileChatRepository(
+            profileStateStore = ProfileStateStore(directories, defaultJson()),
+            idGenerator = object : IdGenerator {
+                private var value = 0
+                override fun nextId(): String = "id-${++value}"
+            },
+            timeProvider = object : TimeProvider {
+                private var now = 1L
+                override fun nowMillis(): Long = now++
+            }
+        )
+
+        val chat = repository.createChat("uA", "Chat to delete")
+        repository.appendMessage(
+            userId = "uA",
+            chatId = chat.id,
+            message = ChatMessage("m1", chat.id, ChatRole.USER, "hello", 10)
+        )
+
+        repository.deleteChat("uA", chat.id)
+
+        assertEquals(emptyList(), repository.listChats("uA"))
+        assertEquals(emptyList(), repository.listMessages("uA", chat.id))
+    }
 }

@@ -33,6 +33,15 @@ class FileChatRepository(
         return chat
     }
 
+    override suspend fun deleteChat(userId: String, chatId: String) {
+        profileStateStore.update(userId) { state ->
+            state.copy(
+                chats = state.chats.filterNot { it.id == chatId },
+                messagesByChat = state.messagesByChat - chatId
+            )
+        }
+    }
+
     override suspend fun listMessages(userId: String, chatId: String): List<ChatMessage> {
         return profileStateStore.read(userId)
             .messagesByChat[chatId]

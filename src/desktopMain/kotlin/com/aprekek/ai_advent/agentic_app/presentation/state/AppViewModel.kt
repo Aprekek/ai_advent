@@ -12,6 +12,8 @@ import com.aprekek.ai_advent.agentic_app.domain.model.ThemeMode
 import com.aprekek.ai_advent.agentic_app.domain.usecase.BootstrapAppUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.CreateChatUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.CreateProfileUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.DeleteChatUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.DeleteProfileUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.LoadWorkspaceUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SaveApiKeyUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SelectChatUseCase
@@ -30,9 +32,11 @@ import kotlinx.coroutines.launch
 class AppViewModel(
     private val bootstrapAppUseCase: BootstrapAppUseCase,
     private val createProfileUseCase: CreateProfileUseCase,
+    private val deleteProfileUseCase: DeleteProfileUseCase,
     private val switchProfileUseCase: SwitchProfileUseCase,
     private val loadWorkspaceUseCase: LoadWorkspaceUseCase,
     private val createChatUseCase: CreateChatUseCase,
+    private val deleteChatUseCase: DeleteChatUseCase,
     private val selectChatUseCase: SelectChatUseCase,
     private val saveApiKeyUseCase: SaveApiKeyUseCase,
     private val setThemeUseCase: SetThemeUseCase,
@@ -94,6 +98,33 @@ class AppViewModel(
         }
     }
 
+    fun deleteActiveProfile() {
+        val profileId = state.activeProfileId ?: return
+        scope.launch {
+            runCatching {
+                if (state.isStreaming) {
+                    stopStreaming()
+                }
+
+                val newActiveProfile = deleteProfileUseCase.execute(profileId)
+                val profiles = bootstrapAppUseCase.execute().profiles
+                val workspace = loadWorkspaceUseCase.execute(newActiveProfile.id)
+
+                state = state.copy(
+                    profiles = profiles,
+                    activeProfileId = newActiveProfile.id,
+                    chats = workspace.chats,
+                    selectedChatId = workspace.selectedChatId,
+                    messages = workspace.messages,
+                    hasApiKey = workspace.hasApiKey,
+                    errorMessage = null
+                )
+            }.onFailure { error ->
+                state = state.copy(errorMessage = userMessageForError(error))
+            }
+        }
+    }
+
     fun switchProfile(profileId: String) {
         scope.launch {
             runCatching {
@@ -137,6 +168,27 @@ class AppViewModel(
                 selectChatUseCase.execute(profileId, chatId)
                 val workspace = loadWorkspaceUseCase.execute(profileId)
                 state = state.copy(
+                    selectedChatId = workspace.selectedChatId,
+                    messages = workspace.messages,
+                    errorMessage = null
+                )
+            }.onFailure { error ->
+                state = state.copy(errorMessage = userMessageForError(error))
+            }
+        }
+    }
+
+    fun deleteChat(chatId: String) {
+        val profileId = state.activeProfileId ?: return
+        scope.launch {
+            runCatching {
+                if (state.isStreaming && state.selectedChatId == chatId) {
+                    stopStreaming()
+                }
+                deleteChatUseCase.execute(profileId, chatId)
+                val workspace = loadWorkspaceUseCase.execute(profileId)
+                state = state.copy(
+                    chats = workspace.chats,
                     selectedChatId = workspace.selectedChatId,
                     messages = workspace.messages,
                     errorMessage = null

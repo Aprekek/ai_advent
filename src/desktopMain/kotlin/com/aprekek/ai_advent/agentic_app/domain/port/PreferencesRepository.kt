@@ -8,6 +8,7 @@ interface PreferencesRepository {
     suspend fun load(): AppPreferences
     suspend fun setActiveProfile(profileId: String)
     suspend fun setActiveChat(profileId: String, chatId: String)
+    suspend fun clearProfileState(profileId: String)
     suspend fun setTheme(themeMode: ThemeMode)
     suspend fun setPanelLayout(layoutState: PanelLayoutState)
 }

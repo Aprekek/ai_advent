@@ -25,6 +25,8 @@ import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Divider
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedButton
 import androidx.compose.material.OutlinedTextField
@@ -33,6 +35,8 @@ import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.material.TextField
 import androidx.compose.material.darkColors
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.lightColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -82,6 +86,7 @@ fun AprAgentApp(viewModel: AppViewModel) {
             Toolbar(
                 state = state,
                 onCreateProfileClick = { showProfileDialog = true },
+                onDeleteProfileClick = viewModel::deleteActiveProfile,
                 onProfileSelected = viewModel::switchProfile,
                 onCreateChatClick = viewModel::createChat,
                 onApiKeyClick = { showApiKeyDialog = true },
@@ -124,6 +129,7 @@ fun AprAgentApp(viewModel: AppViewModel) {
                     },
                     onStopMessage = viewModel::stopStreaming,
                     onChatSelected = viewModel::selectChat,
+                    onDeleteChat = viewModel::deleteChat,
                     onResizeLeft = { dragDeltaPx ->
                         val current = state.panelLayoutState
                         val updatedWidth = (current.leftPanelWidthPx + dragDeltaPx).coerceIn(220f, 460f)
@@ -164,6 +170,7 @@ fun AprAgentApp(viewModel: AppViewModel) {
 private fun Toolbar(
     state: com.aprekek.ai_advent.agentic_app.presentation.state.AppUiState,
     onCreateProfileClick: () -> Unit,
+    onDeleteProfileClick: () -> Unit,
     onProfileSelected: (String) -> Unit,
     onCreateChatClick: () -> Unit,
     onApiKeyClick: () -> Unit,
@@ -201,6 +208,12 @@ private fun Toolbar(
 
         OutlinedButton(onClick = onCreateProfileClick) {
             Text("Новый профиль")
+        }
+        IconButton(onClick = onDeleteProfileClick) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Удалить профиль"
+            )
         }
         OutlinedButton(onClick = onCreateChatClick) {
             Text("Новый чат")
@@ -258,6 +271,7 @@ private fun DesktopLayout(
     onSendMessage: () -> Unit,
     onStopMessage: () -> Unit,
     onChatSelected: (String) -> Unit,
+    onDeleteChat: (String) -> Unit,
     onResizeLeft: (Float) -> Unit,
     onResizeRight: (Float) -> Unit
 ) {
@@ -269,7 +283,8 @@ private fun DesktopLayout(
             ChatListPanel(
                 modifier = Modifier.width(leftWidth).fillMaxHeight(),
                 state = state,
-                onChatSelected = onChatSelected
+                onChatSelected = onChatSelected,
+                onDeleteChat = onDeleteChat
             )
             VerticalSplitter(onDrag = onResizeLeft)
         }
@@ -297,7 +312,8 @@ private fun DesktopLayout(
 private fun ChatListPanel(
     modifier: Modifier,
     state: com.aprekek.ai_advent.agentic_app.presentation.state.AppUiState,
-    onChatSelected: (String) -> Unit
+    onChatSelected: (String) -> Unit,
+    onDeleteChat: (String) -> Unit
 ) {
     Surface(modifier = modifier, color = MaterialTheme.colors.surface) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -318,7 +334,18 @@ private fun ChatListPanel(
                             .clickable { onChatSelected(chat.id) }
                             .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
-                        Text(chat.title, maxLines = 1)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(chat.title, maxLines = 1, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { onDeleteChat(chat.id) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Удалить чат"
+                                )
+                            }
+                        }
                     }
                     Divider()
                 }

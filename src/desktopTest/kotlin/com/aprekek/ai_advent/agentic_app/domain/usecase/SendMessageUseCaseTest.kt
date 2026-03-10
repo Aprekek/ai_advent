@@ -83,6 +83,11 @@ class SendMessageUseCaseTest {
             return chat
         }
 
+        override suspend fun deleteChat(userId: String, chatId: String) {
+            chats[userId]?.removeAll { it.id == chatId }
+            messages.remove(userId to chatId)
+        }
+
         override suspend fun listMessages(userId: String, chatId: String): List<ChatMessage> {
             return messages[userId to chatId].orEmpty()
         }

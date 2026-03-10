@@ -32,6 +32,15 @@ class FilePreferencesRepository(
         }
     }
 
+    override suspend fun clearProfileState(profileId: String) {
+        appStateStore.update { state ->
+            state.copy(
+                activeProfileId = state.activeProfileId.takeUnless { it == profileId },
+                activeChatByProfile = state.activeChatByProfile - profileId
+            )
+        }
+    }
+
     override suspend fun setTheme(themeMode: ThemeMode) {
         appStateStore.update { state ->
             state.copy(themeMode = themeMode)

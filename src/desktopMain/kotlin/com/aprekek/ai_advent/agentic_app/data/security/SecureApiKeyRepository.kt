@@ -15,8 +15,8 @@ class SecureApiKeyRepository(
 ) : ApiKeyRepository {
     override suspend fun saveApiKey(profileId: String, apiKey: String) {
         when (osFamily) {
-            OsFamily.MAC -> saveToMacKeychain(profileId, apiKey)
-            OsFamily.WINDOWS -> saveWithWindowsDpapi(profileId, apiKey)
+            OsFamily.MAC -> saveToMacKeychain(apiKey)
+            OsFamily.WINDOWS -> saveWithWindowsDpapi(apiKey)
             OsFamily.OTHER -> throw IllegalStateException(
                 "Текущая ОС не поддерживается для безопасного хранения API key"
             )
@@ -31,13 +31,13 @@ class SecureApiKeyRepository(
         }
     }
 
-    private suspend fun saveToMacKeychain(profileId: String, apiKey: String) = withContext(Dispatchers.IO) {
+    private suspend fun saveToMacKeychain(apiKey: String) = withContext(Dispatchers.IO) {
         val result = runCommand(
             listOf(
                 "/usr/bin/security",
                 "add-generic-password",
                 "-a",
-                account(profileId),
+                globalAccount(),
                 "-s",
                 serviceName(),
                 "-w",
@@ -52,27 +52,42 @@ class SecureApiKeyRepository(
     }
 
     private suspend fun readFromMacKeychain(profileId: String): String? = withContext(Dispatchers.IO) {
-        val result = runCommand(
+        val globalResult = runCommand(
             listOf(
                 "/usr/bin/security",
                 "find-generic-password",
                 "-a",
-                account(profileId),
+                globalAccount(),
                 "-s",
                 serviceName(),
                 "-w"
             )
         )
 
-        if (result.exitCode != 0) {
-            return@withContext null
+        if (globalResult.exitCode == 0) {
+            return@withContext globalResult.output.trim().ifEmpty { null }
         }
 
-        result.output.trim().ifEmpty { null }
+        // Backward compatibility with previously profile-bound keys.
+        val legacyResult = runCommand(
+            listOf(
+                "/usr/bin/security",
+                "find-generic-password",
+                "-a",
+                legacyProfileAccount(profileId),
+                "-s",
+                serviceName(),
+                "-w"
+            )
+        )
+        if (legacyResult.exitCode != 0) {
+            return@withContext null
+        }
+        legacyResult.output.trim().ifEmpty { null }
     }
 
-    private suspend fun saveWithWindowsDpapi(profileId: String, apiKey: String) = withContext(Dispatchers.IO) {
-        val path = directories.windowsProtectedKeyFile(profileId).toAbsolutePath().toString()
+    private suspend fun saveWithWindowsDpapi(apiKey: String) = withContext(Dispatchers.IO) {
+        val path = directories.windowsGlobalProtectedKeyFile().toAbsolutePath().toString()
         val keyBase64 = Base64.getEncoder().encodeToString(apiKey.toByteArray(StandardCharsets.UTF_8))
         val script = "\$bytes=[Convert]::FromBase64String('${psLiteral(keyBase64)}');" +
             "\$enc=[System.Security.Cryptography.ProtectedData]::Protect(\$bytes,\$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);" +
@@ -94,7 +109,15 @@ class SecureApiKeyRepository(
     }
 
     private suspend fun readWithWindowsDpapi(profileId: String): String? = withContext(Dispatchers.IO) {
-        val path = directories.windowsProtectedKeyFile(profileId).toAbsolutePath().toString()
+        val globalPath = directories.windowsGlobalProtectedKeyFile().toAbsolutePath().toString()
+        readWindowsDpapiByPath(globalPath)?.let { return@withContext it }
+
+        // Backward compatibility with previously profile-bound keys.
+        val legacyPath = directories.windowsProtectedKeyFile(profileId).toAbsolutePath().toString()
+        readWindowsDpapiByPath(legacyPath)
+    }
+
+    private fun readWindowsDpapiByPath(path: String): String? {
         val script = "if (-not (Test-Path '${psLiteral(path)}')) { exit 2 };" +
             "\$enc=[IO.File]::ReadAllBytes('${psLiteral(path)}');" +
             "\$dec=[System.Security.Cryptography.ProtectedData]::Unprotect(\$enc,\$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);" +
@@ -111,7 +134,7 @@ class SecureApiKeyRepository(
         )
 
         if (result.exitCode == 2) {
-            return@withContext null
+            return null
         }
 
         if (result.exitCode != 0) {
@@ -122,7 +145,7 @@ class SecureApiKeyRepository(
             String(Base64.getDecoder().decode(result.output.trim()), StandardCharsets.UTF_8)
         }.getOrNull()
 
-        decoded?.ifEmpty { null }
+        return decoded?.ifEmpty { null }
     }
 
     private fun runCommand(command: List<String>): CommandResult {
@@ -135,7 +158,9 @@ class SecureApiKeyRepository(
         return CommandResult(exitCode = exit, output = output)
     }
 
-    private fun account(profileId: String): String = "apragent-$profileId"
+    private fun globalAccount(): String = "apragent-global"
+
+    private fun legacyProfileAccount(profileId: String): String = "apragent-$profileId"
 
     private fun serviceName(): String = "AprAgent.DeepSeek"
 

@@ -7,6 +7,7 @@ import com.aprekek.ai_advent.agentic_app.domain.port.UserRepository
 
 class FileUserRepository(
     private val appStateStore: AppStateStore,
+    private val appDirectories: AppDirectories,
     private val idGenerator: IdGenerator,
     private val timeProvider: TimeProvider
 ) : UserRepository {
@@ -24,5 +25,14 @@ class FileUserRepository(
             current.copy(profiles = current.profiles + profile)
         }
         return profile
+    }
+
+    override suspend fun deleteProfile(profileId: String) {
+        appStateStore.update { current ->
+            current.copy(
+                profiles = current.profiles.filterNot { it.id == profileId }
+            )
+        }
+        appDirectories.deleteProfileDirectory(profileId)
     }
 }
