@@ -11,12 +11,14 @@ import com.aprekek.ai_advent.agentic_app.domain.port.ChatRepository
 import com.aprekek.ai_advent.agentic_app.domain.port.ChatStreamingGateway
 import com.aprekek.ai_advent.agentic_app.domain.port.IdGenerator
 import com.aprekek.ai_advent.agentic_app.domain.port.TimeProvider
+import com.aprekek.ai_advent.agentic_app.domain.port.UserRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
 class SendMessageUseCase(
     private val chatRepository: ChatRepository,
+    private val userRepository: UserRepository,
     private val apiKeyRepository: ApiKeyRepository,
     private val chatStreamingGateway: ChatStreamingGateway,
     private val idGenerator: IdGenerator,
@@ -48,6 +50,8 @@ class SendMessageUseCase(
         chatRepository.appendMessage(profileId, chatId, userMessage)
 
         val history = chatRepository.listMessages(profileId, chatId)
+        val profileContextMessage = buildProfileContextMessage(profileId)
+        val requestMessages = profileContextMessage?.let { listOf(it) + history } ?: history
         val assistantBuffer = StringBuilder()
         var persisted = false
 
@@ -69,7 +73,7 @@ class SendMessageUseCase(
             chatStreamingGateway.streamChat(
                 ChatRequest(
                     apiKey = apiKey,
-                    messages = history
+                    messages = requestMessages
                 )
             ).collect { event ->
                 when (event) {
@@ -94,5 +98,27 @@ class SendMessageUseCase(
             persistAssistantMessageIfNeeded()
             throw error
         }
+    }
+
+    private suspend fun buildProfileContextMessage(profileId: String): ChatMessage? {
+        val profile = userRepository.listProfiles().firstOrNull { it.id == profileId } ?: return null
+        if (profile.descriptionItems.isEmpty()) return null
+
+        val context = buildString {
+            appendLine("User profile context:")
+            appendLine("Name: ${profile.name}")
+            appendLine("Description items:")
+            profile.descriptionItems.forEachIndexed { index, item ->
+                appendLine("${index + 1}. ${item.value}")
+            }
+        }.trim()
+
+        return ChatMessage(
+            id = "profile-context-$profileId",
+            chatId = "",
+            role = ChatRole.SYSTEM,
+            content = context,
+            createdAt = timeProvider.nowMillis()
+        )
     }
 }

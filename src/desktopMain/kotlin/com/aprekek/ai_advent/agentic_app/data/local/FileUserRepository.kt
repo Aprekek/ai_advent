@@ -1,5 +1,6 @@
 package com.aprekek.ai_advent.agentic_app.data.local
 
+import com.aprekek.ai_advent.agentic_app.domain.model.ProfileDescriptionItem
 import com.aprekek.ai_advent.agentic_app.domain.model.UserProfile
 import com.aprekek.ai_advent.agentic_app.domain.port.IdGenerator
 import com.aprekek.ai_advent.agentic_app.domain.port.TimeProvider
@@ -15,14 +16,26 @@ class FileUserRepository(
         return appStateStore.read().profiles.sortedBy { it.createdAt }
     }
 
-    override suspend fun createProfile(name: String): UserProfile {
+    override suspend fun createProfile(name: String, descriptionItems: List<String>): UserProfile {
         val profile = UserProfile(
             id = idGenerator.nextId(),
             name = name,
-            createdAt = timeProvider.nowMillis()
+            createdAt = timeProvider.nowMillis(),
+            descriptionItems = descriptionItems.map(::toDescriptionItem)
         )
         appStateStore.update { current ->
             current.copy(profiles = current.profiles + profile)
+        }
+        return profile
+    }
+
+    override suspend fun updateProfile(profile: UserProfile): UserProfile {
+        appStateStore.update { current ->
+            current.copy(
+                profiles = current.profiles.map { existing ->
+                    if (existing.id == profile.id) profile else existing
+                }
+            )
         }
         return profile
     }
@@ -34,5 +47,13 @@ class FileUserRepository(
             )
         }
         appDirectories.deleteProfileDirectory(profileId)
+    }
+
+    private fun toDescriptionItem(value: String): ProfileDescriptionItem {
+        return ProfileDescriptionItem(
+            id = idGenerator.nextId(),
+            value = value,
+            createdAt = timeProvider.nowMillis()
+        )
     }
 }

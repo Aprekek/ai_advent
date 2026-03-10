@@ -4,13 +4,16 @@ import com.aprekek.ai_advent.agentic_app.domain.model.ChatMessage
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatRequest
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatRole
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatThread
+import com.aprekek.ai_advent.agentic_app.domain.model.ProfileDescriptionItem
 import com.aprekek.ai_advent.agentic_app.domain.model.SendMessageProgress
 import com.aprekek.ai_advent.agentic_app.domain.model.StreamEvent
+import com.aprekek.ai_advent.agentic_app.domain.model.UserProfile
 import com.aprekek.ai_advent.agentic_app.domain.port.ApiKeyRepository
 import com.aprekek.ai_advent.agentic_app.domain.port.ChatRepository
 import com.aprekek.ai_advent.agentic_app.domain.port.ChatStreamingGateway
 import com.aprekek.ai_advent.agentic_app.domain.port.IdGenerator
 import com.aprekek.ai_advent.agentic_app.domain.port.TimeProvider
+import com.aprekek.ai_advent.agentic_app.domain.port.UserRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.flow.flow
@@ -22,14 +25,36 @@ class SendMessageUseCaseTest {
     fun `stores user and assistant messages while emitting partial updates`() = runTest {
         val chatRepository = InMemoryChatRepository()
         chatRepository.createChat("u1", "Новый чат")
+        var capturedRequest: ChatRequest? = null
         val useCase = SendMessageUseCase(
             chatRepository = chatRepository,
+            userRepository = object : UserRepository {
+                override suspend fun listProfiles(): List<UserProfile> = listOf(
+                    UserProfile(
+                        id = "u1",
+                        name = "Default",
+                        createdAt = 1L,
+                        descriptionItems = listOf(
+                            ProfileDescriptionItem("d1", "loves concise answers", 1L)
+                        )
+                    )
+                )
+
+                override suspend fun createProfile(name: String, descriptionItems: List<String>): UserProfile {
+                    error("not needed")
+                }
+
+                override suspend fun updateProfile(profile: UserProfile): UserProfile = profile
+
+                override suspend fun deleteProfile(profileId: String) = Unit
+            },
             apiKeyRepository = object : ApiKeyRepository {
                 override suspend fun saveApiKey(profileId: String, apiKey: String) = Unit
                 override suspend fun getApiKey(profileId: String): String = "secret"
             },
             chatStreamingGateway = object : ChatStreamingGateway {
                 override fun streamChat(request: ChatRequest) = flow {
+                    capturedRequest = request
                     emit(StreamEvent.Started)
                     emit(StreamEvent.Delta("Hel"))
                     emit(StreamEvent.Delta("lo"))
@@ -61,6 +86,8 @@ class SendMessageUseCaseTest {
         assertEquals("Hi", persisted[0].content)
         assertEquals(ChatRole.ASSISTANT, persisted[1].role)
         assertEquals("Hello", persisted[1].content)
+        assertEquals(ChatRole.SYSTEM, capturedRequest?.messages?.first()?.role)
+        assertEquals(true, capturedRequest?.messages?.first()?.content?.contains("loves concise answers"))
     }
 
     private class InMemoryChatRepository : ChatRepository {

@@ -6,5 +6,13 @@ import kotlinx.serialization.Serializable
 data class UserProfile(
     val id: String,
     val name: String,
+    val createdAt: Long,
+    val descriptionItems: List<ProfileDescriptionItem> = emptyList()
+)
+
+@Serializable
+data class ProfileDescriptionItem(
+    val id: String,
+    val value: String,
     val createdAt: Long
 )

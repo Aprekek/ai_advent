@@ -37,10 +37,12 @@ import androidx.compose.material.TextField
 import androidx.compose.material.darkColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.lightColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -79,13 +81,16 @@ fun AprAgentApp(viewModel: AppViewModel) {
 
     var messageInput by remember { mutableStateOf("") }
     var showProfileDialog by remember { mutableStateOf(false) }
+    var showProfileEditDialog by remember { mutableStateOf(false) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
+    val activeProfile = state.profiles.firstOrNull { it.id == state.activeProfileId }
 
     MaterialTheme(colors = colors) {
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colors.background)) {
             Toolbar(
                 state = state,
                 onCreateProfileClick = { showProfileDialog = true },
+                onEditProfileClick = { showProfileEditDialog = true },
                 onDeleteProfileClick = viewModel::deleteProfile,
                 onProfileSelected = viewModel::switchProfile,
                 onCreateChatClick = viewModel::createChat,
@@ -145,11 +150,29 @@ fun AprAgentApp(viewModel: AppViewModel) {
         }
 
         if (showProfileDialog) {
-            CreateProfileDialog(
+            ProfileDialog(
+                title = "Новый профиль",
+                confirmTitle = "Создать",
+                initialName = "",
+                initialDescriptionItems = emptyList(),
                 onDismiss = { showProfileDialog = false },
-                onConfirm = {
-                    viewModel.createProfile(it)
+                onConfirm = { name, items ->
+                    viewModel.createProfile(name, items)
                     showProfileDialog = false
+                }
+            )
+        }
+
+        if (showProfileEditDialog && activeProfile != null) {
+            ProfileDialog(
+                title = "Редактировать профиль",
+                confirmTitle = "Сохранить",
+                initialName = activeProfile.name,
+                initialDescriptionItems = activeProfile.descriptionItems.map { it.value },
+                onDismiss = { showProfileEditDialog = false },
+                onConfirm = { name, items ->
+                    viewModel.updateActiveProfile(name, items)
+                    showProfileEditDialog = false
                 }
             )
         }
@@ -170,6 +193,7 @@ fun AprAgentApp(viewModel: AppViewModel) {
 private fun Toolbar(
     state: com.aprekek.ai_advent.agentic_app.presentation.state.AppUiState,
     onCreateProfileClick: () -> Unit,
+    onEditProfileClick: () -> Unit,
     onDeleteProfileClick: (String) -> Unit,
     onProfileSelected: (String) -> Unit,
     onCreateChatClick: () -> Unit,
@@ -222,6 +246,12 @@ private fun Toolbar(
 
         OutlinedButton(onClick = onCreateProfileClick) {
             Text("Новый профиль")
+        }
+        IconButton(onClick = onEditProfileClick, enabled = state.activeProfileId != null) {
+            Icon(
+                imageVector = Icons.Default.Edit,
+                contentDescription = "Редактировать профиль"
+            )
         }
         OutlinedButton(onClick = onCreateChatClick) {
             Text("Новый чат")
@@ -505,29 +535,86 @@ private fun VerticalSplitter(onDrag: (Float) -> Unit) {
 }
 
 @Composable
-private fun CreateProfileDialog(
+private fun ProfileDialog(
+    title: String,
+    confirmTitle: String,
+    initialName: String,
+    initialDescriptionItems: List<String>,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (String, List<String>) -> Unit
 ) {
-    var value by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initialName) }
+    var descriptionDraft by remember { mutableStateOf("") }
+    val descriptionItems = remember(initialDescriptionItems) {
+        mutableStateListOf<String>().apply { addAll(initialDescriptionItems) }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Новый профиль") },
+        title = { Text(title) },
         text = {
-            OutlinedTextField(
-                value = value,
-                onValueChange = { value = it },
-                label = { Text("Имя") },
-                singleLine = true
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Имя") },
+                    singleLine = true
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = descriptionDraft,
+                        onValueChange = { descriptionDraft = it },
+                        label = { Text("Profile description item") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            val normalized = descriptionDraft.trim()
+                            if (normalized.isNotEmpty()) {
+                                descriptionItems.add(normalized)
+                                descriptionDraft = ""
+                            }
+                        }
+                    ) {
+                        Text("Добавить")
+                    }
+                }
+
+                if (descriptionItems.isNotEmpty()) {
+                    Text("Список description items")
+                    descriptionItems.forEachIndexed { index, item ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = item,
+                                onValueChange = { updated -> descriptionItems[index] = updated },
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = { descriptionItems.removeAt(index) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Удалить description item"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(value) },
-                enabled = value.isNotBlank()
+                onClick = { onConfirm(name, descriptionItems.toList()) },
+                enabled = name.isNotBlank()
             ) {
-                Text("Создать")
+                Text(confirmTitle)
             }
         },
         dismissButton = {

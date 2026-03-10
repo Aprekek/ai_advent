@@ -8,11 +8,14 @@ class CreateProfileUseCase(
     private val userRepository: UserRepository,
     private val preferencesRepository: PreferencesRepository
 ) {
-    suspend fun execute(name: String): UserProfile {
+    suspend fun execute(name: String, descriptionItems: List<String>): UserProfile {
         val trimmedName = name.trim()
         require(trimmedName.isNotEmpty()) { "Имя пользователя не должно быть пустым" }
+        val normalizedDescriptions = descriptionItems
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
 
-        val profile = userRepository.createProfile(trimmedName)
+        val profile = userRepository.createProfile(trimmedName, normalizedDescriptions)
         preferencesRepository.setActiveProfile(profile.id)
         return profile
     }

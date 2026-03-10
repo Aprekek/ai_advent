@@ -27,6 +27,7 @@ import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SetPanelLayoutUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SetThemeUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SwitchProfileUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.UpdateProfileUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.state.AppViewModel
 import com.aprekek.ai_advent.agentic_app.util.DefaultIdGenerator
 import com.aprekek.ai_advent.agentic_app.util.SystemTimeProvider
@@ -87,6 +88,7 @@ private val appModule = module {
     single { BootstrapAppUseCase(get(), get(), get()) }
     single { CreateProfileUseCase(get(), get()) }
     single { DeleteProfileUseCase(get(), get()) }
+    single { UpdateProfileUseCase(get(), get(), get()) }
     single { SwitchProfileUseCase(get(), get()) }
     single { CreateChatUseCase(get(), get()) }
     single { DeleteChatUseCase(get()) }
@@ -94,13 +96,14 @@ private val appModule = module {
     single { SaveApiKeyUseCase(get()) }
     single { SetThemeUseCase(get()) }
     single { SetPanelLayoutUseCase(get()) }
-    single { SendMessageUseCase(get(), get(), get(), get(), get()) }
+    single { SendMessageUseCase(get(), get(), get(), get(), get(), get()) }
 
     single {
         AppViewModel(
             bootstrapAppUseCase = get(),
             createProfileUseCase = get(),
             deleteProfileUseCase = get(),
+            updateProfileUseCase = get(),
             switchProfileUseCase = get(),
             loadWorkspaceUseCase = get(),
             createChatUseCase = get(),

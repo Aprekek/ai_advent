@@ -21,6 +21,7 @@ import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SetPanelLayoutUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SetThemeUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SwitchProfileUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.UpdateProfileUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,7 @@ class AppViewModel(
     private val bootstrapAppUseCase: BootstrapAppUseCase,
     private val createProfileUseCase: CreateProfileUseCase,
     private val deleteProfileUseCase: DeleteProfileUseCase,
+    private val updateProfileUseCase: UpdateProfileUseCase,
     private val switchProfileUseCase: SwitchProfileUseCase,
     private val loadWorkspaceUseCase: LoadWorkspaceUseCase,
     private val createChatUseCase: CreateChatUseCase,
@@ -78,10 +80,10 @@ class AppViewModel(
         }
     }
 
-    fun createProfile(name: String) {
+    fun createProfile(name: String, descriptionItems: List<String>) {
         scope.launch {
             runCatching {
-                val profile = createProfileUseCase.execute(name)
+                val profile = createProfileUseCase.execute(name, descriptionItems)
                 val workspace = switchProfileUseCase.execute(profile.id)
                 state = state.copy(
                     profiles = state.profiles + profile,
@@ -90,6 +92,23 @@ class AppViewModel(
                     selectedChatId = workspace.selectedChatId,
                     messages = workspace.messages,
                     hasApiKey = workspace.hasApiKey,
+                    errorMessage = null
+                )
+            }.onFailure { error ->
+                state = state.copy(errorMessage = userMessageForError(error))
+            }
+        }
+    }
+
+    fun updateActiveProfile(name: String, descriptionItems: List<String>) {
+        val profileId = state.activeProfileId ?: return
+        scope.launch {
+            runCatching {
+                updateProfileUseCase.execute(profileId, name, descriptionItems)
+                val bootstrap = bootstrapAppUseCase.execute()
+                state = state.copy(
+                    profiles = bootstrap.profiles,
+                    activeProfileId = bootstrap.activeProfileId,
                     errorMessage = null
                 )
             }.onFailure { error ->
