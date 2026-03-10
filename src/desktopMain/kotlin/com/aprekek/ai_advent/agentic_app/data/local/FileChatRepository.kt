@@ -1,5 +1,6 @@
 package com.aprekek.ai_advent.agentic_app.data.local
 
+import com.aprekek.ai_advent.agentic_app.domain.model.ChatContextItem
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatMessage
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatRole
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatThread
@@ -14,6 +15,10 @@ class FileChatRepository(
 ) : ChatRepository {
     override suspend fun listChats(userId: String): List<ChatThread> {
         return profileStateStore.read(userId).chats.sortedByDescending { it.updatedAt }
+    }
+
+    override suspend fun getChat(userId: String, chatId: String): ChatThread? {
+        return profileStateStore.read(userId).chats.firstOrNull { it.id == chatId }
     }
 
     override suspend fun createChat(userId: String, title: String): ChatThread {
@@ -39,6 +44,30 @@ class FileChatRepository(
                 chats = state.chats.filterNot { it.id == chatId },
                 messagesByChat = state.messagesByChat - chatId
             )
+        }
+    }
+
+    override suspend fun updateChatContextItems(userId: String, chatId: String, contextItems: List<String>) {
+        profileStateStore.update(userId) { state ->
+            val existingChat = state.chats.firstOrNull { it.id == chatId } ?: return@update state
+            val normalized = contextItems
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+
+            val existingByValue = existingChat.contextItems.associateBy { it.value }
+            val updatedItems = normalized.map { value ->
+                existingByValue[value] ?: ChatContextItem(
+                    id = idGenerator.nextId(),
+                    value = value,
+                    createdAt = timeProvider.nowMillis()
+                )
+            }
+
+            val updatedChat = existingChat.copy(
+                contextItems = updatedItems,
+                updatedAt = timeProvider.nowMillis()
+            )
+            state.copy(chats = listOf(updatedChat) + state.chats.filterNot { it.id == chatId })
         }
     }
 
@@ -70,7 +99,8 @@ class FileChatRepository(
                     userId = userId,
                     title = inferTitle(message.content),
                     createdAt = message.createdAt,
-                    updatedAt = message.createdAt
+                    updatedAt = message.createdAt,
+                    contextItems = emptyList()
                 )
             }
 

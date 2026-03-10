@@ -98,6 +98,10 @@ class SendMessageUseCaseTest {
             return chats[userId].orEmpty()
         }
 
+        override suspend fun getChat(userId: String, chatId: String): ChatThread? {
+            return chats[userId].orEmpty().firstOrNull { it.id == chatId }
+        }
+
         override suspend fun createChat(userId: String, title: String): ChatThread {
             val chat = ChatThread(
                 id = "chat-1",
@@ -113,6 +117,27 @@ class SendMessageUseCaseTest {
         override suspend fun deleteChat(userId: String, chatId: String) {
             chats[userId]?.removeAll { it.id == chatId }
             messages.remove(userId to chatId)
+        }
+
+        override suspend fun updateChatContextItems(userId: String, chatId: String, contextItems: List<String>) {
+            chats[userId] = chats[userId]
+                ?.map { chat ->
+                    if (chat.id == chatId) {
+                        chat.copy(
+                            contextItems = contextItems.mapIndexed { index, value ->
+                                com.aprekek.ai_advent.agentic_app.domain.model.ChatContextItem(
+                                    id = "ctx-$index",
+                                    value = value,
+                                    createdAt = 1L
+                                )
+                            }
+                        )
+                    } else {
+                        chat
+                    }
+                }
+                ?.toMutableList()
+                ?: mutableListOf()
         }
 
         override suspend fun listMessages(userId: String, chatId: String): List<ChatMessage> {

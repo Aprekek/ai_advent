@@ -135,6 +135,7 @@ fun AprAgentApp(viewModel: AppViewModel) {
                     onStopMessage = viewModel::stopStreaming,
                     onChatSelected = viewModel::selectChat,
                     onDeleteChat = viewModel::deleteChat,
+                    onUpdateChatContextItems = viewModel::updateSelectedChatContextItems,
                     onResizeLeft = { dragDeltaPx ->
                         val current = state.panelLayoutState
                         val updatedWidth = (current.leftPanelWidthPx + dragDeltaPx).coerceIn(220f, 460f)
@@ -313,6 +314,7 @@ private fun DesktopLayout(
     onStopMessage: () -> Unit,
     onChatSelected: (String) -> Unit,
     onDeleteChat: (String) -> Unit,
+    onUpdateChatContextItems: (List<String>) -> Unit,
     onResizeLeft: (Float) -> Unit,
     onResizeRight: (Float) -> Unit
 ) {
@@ -342,8 +344,16 @@ private fun DesktopLayout(
         if (state.panelLayoutState.rightPanelVisible) {
             VerticalSplitter(onDrag = onResizeRight)
             val rightWidth = with(density) { state.panelLayoutState.rightPanelWidthPx.toDp() }
-            RightPlaceholderPanel(
-                modifier = Modifier.width(rightWidth).fillMaxHeight()
+            val selectedChatContextItems = state.chats
+                .firstOrNull { it.id == state.selectedChatId }
+                ?.contextItems
+                ?.map { it.value }
+                .orEmpty()
+            ChatContextPanel(
+                modifier = Modifier.width(rightWidth).fillMaxHeight(),
+                chatId = state.selectedChatId,
+                contextItems = selectedChatContextItems,
+                onSave = onUpdateChatContextItems
             )
         }
     }
@@ -513,10 +523,82 @@ private fun ChatPanel(
 }
 
 @Composable
-private fun RightPlaceholderPanel(modifier: Modifier) {
+private fun ChatContextPanel(
+    modifier: Modifier,
+    chatId: String?,
+    contextItems: List<String>,
+    onSave: (List<String>) -> Unit
+) {
+    var draft by remember(chatId) { mutableStateOf("") }
+    val editableItems = remember(chatId, contextItems) {
+        mutableStateListOf<String>().apply { addAll(contextItems) }
+    }
+
     Surface(modifier = modifier, color = MaterialTheme.colors.surface) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Пустой виджет")
+        Column(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Контекст чата", style = MaterialTheme.typography.h6)
+            if (chatId == null) {
+                Text("Выберите чат слева")
+                return@Column
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    label = { Text("Context item") },
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedButton(
+                    onClick = {
+                        val normalized = draft.trim()
+                        if (normalized.isNotEmpty()) {
+                            editableItems.add(normalized)
+                            draft = ""
+                        }
+                    }
+                ) {
+                    Text("Добавить")
+                }
+            }
+
+            if (editableItems.isNotEmpty()) {
+                Text("Текущие items")
+                editableItems.forEachIndexed { index, item ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = item,
+                            onValueChange = { updated -> editableItems[index] = updated },
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { editableItems.removeAt(index) }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Удалить context item"
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+            Button(
+                onClick = { onSave(editableItems.toList()) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Сохранить контекст")
+            }
         }
     }
 }

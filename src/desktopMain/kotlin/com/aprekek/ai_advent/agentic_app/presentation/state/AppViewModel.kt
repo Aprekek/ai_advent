@@ -21,6 +21,7 @@ import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SetPanelLayoutUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SetThemeUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SwitchProfileUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.UpdateChatContextUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.UpdateProfileUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -40,6 +41,7 @@ class AppViewModel(
     private val createChatUseCase: CreateChatUseCase,
     private val deleteChatUseCase: DeleteChatUseCase,
     private val selectChatUseCase: SelectChatUseCase,
+    private val updateChatContextUseCase: UpdateChatContextUseCase,
     private val saveApiKeyUseCase: SaveApiKeyUseCase,
     private val setThemeUseCase: SetThemeUseCase,
     private val setPanelLayoutUseCase: SetPanelLayoutUseCase,
@@ -203,6 +205,25 @@ class AppViewModel(
                     stopStreaming()
                 }
                 deleteChatUseCase.execute(profileId, chatId)
+                val workspace = loadWorkspaceUseCase.execute(profileId)
+                state = state.copy(
+                    chats = workspace.chats,
+                    selectedChatId = workspace.selectedChatId,
+                    messages = workspace.messages,
+                    errorMessage = null
+                )
+            }.onFailure { error ->
+                state = state.copy(errorMessage = userMessageForError(error))
+            }
+        }
+    }
+
+    fun updateSelectedChatContextItems(contextItems: List<String>) {
+        val profileId = state.activeProfileId ?: return
+        val chatId = state.selectedChatId ?: return
+        scope.launch {
+            runCatching {
+                updateChatContextUseCase.execute(profileId, chatId, contextItems)
                 val workspace = loadWorkspaceUseCase.execute(profileId)
                 state = state.copy(
                     chats = workspace.chats,

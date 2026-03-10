@@ -28,6 +28,7 @@ import com.aprekek.ai_advent.agentic_app.domain.usecase.SetPanelLayoutUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SetThemeUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SwitchProfileUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.UpdateProfileUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.UpdateChatContextUseCase
 import com.aprekek.ai_advent.agentic_app.presentation.state.AppViewModel
 import com.aprekek.ai_advent.agentic_app.util.DefaultIdGenerator
 import com.aprekek.ai_advent.agentic_app.util.SystemTimeProvider
@@ -93,6 +94,7 @@ private val appModule = module {
     single { CreateChatUseCase(get(), get()) }
     single { DeleteChatUseCase(get()) }
     single { SelectChatUseCase(get()) }
+    single { UpdateChatContextUseCase(get()) }
     single { SaveApiKeyUseCase(get()) }
     single { SetThemeUseCase(get()) }
     single { SetPanelLayoutUseCase(get()) }
@@ -109,6 +111,7 @@ private val appModule = module {
             createChatUseCase = get(),
             deleteChatUseCase = get(),
             selectChatUseCase = get(),
+            updateChatContextUseCase = get(),
             saveApiKeyUseCase = get(),
             setThemeUseCase = get(),
             setPanelLayoutUseCase = get(),

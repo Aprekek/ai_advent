@@ -51,7 +51,9 @@ class SendMessageUseCase(
 
         val history = chatRepository.listMessages(profileId, chatId)
         val profileContextMessage = buildProfileContextMessage(profileId)
-        val requestMessages = profileContextMessage?.let { listOf(it) + history } ?: history
+        val chatContextMessage = buildChatContextMessage(profileId, chatId)
+        val prefix = listOfNotNull(profileContextMessage, chatContextMessage)
+        val requestMessages = prefix + history
         val assistantBuffer = StringBuilder()
         var persisted = false
 
@@ -116,6 +118,26 @@ class SendMessageUseCase(
         return ChatMessage(
             id = "profile-context-$profileId",
             chatId = "",
+            role = ChatRole.SYSTEM,
+            content = context,
+            createdAt = timeProvider.nowMillis()
+        )
+    }
+
+    private suspend fun buildChatContextMessage(profileId: String, chatId: String): ChatMessage? {
+        val chat = chatRepository.getChat(profileId, chatId) ?: return null
+        if (chat.contextItems.isEmpty()) return null
+
+        val context = buildString {
+            appendLine("Current chat additional context:")
+            chat.contextItems.forEachIndexed { index, item ->
+                appendLine("${index + 1}. ${item.value}")
+            }
+        }.trim()
+
+        return ChatMessage(
+            id = "chat-context-$chatId",
+            chatId = chatId,
             role = ChatRole.SYSTEM,
             content = context,
             createdAt = timeProvider.nowMillis()
