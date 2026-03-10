@@ -52,6 +52,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -516,7 +522,21 @@ private fun ChatPanel(
                     TextField(
                         value = messageInput,
                         onValueChange = onMessageInput,
-                        modifier = Modifier.weight(1f).height(96.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(96.dp)
+                            .onPreviewKeyEvent { keyEvent ->
+                                val isCommandEnter =
+                                    keyEvent.type == KeyEventType.KeyDown &&
+                                        keyEvent.isMetaPressed &&
+                                        (keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
+                                if (isCommandEnter && !state.isStreaming && messageInput.isNotBlank() && state.selectedChatId != null) {
+                                    onSend()
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
                         enabled = !state.isStreaming,
                         placeholder = { Text("Введите сообщение...") }
                     )
