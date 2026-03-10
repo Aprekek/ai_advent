@@ -664,9 +664,7 @@ private fun ChatContextDialog(
 
 private fun summarizeContextItems(items: List<String>): String {
     if (items.isEmpty()) return "Контекст пока не добавлен."
-    val preview = items.take(3).joinToString(separator = " | ")
-    val suffix = if (items.size > 3) " (+${items.size - 3})" else ""
-    return "${items.size} item(s): $preview$suffix"
+    return items.joinToString(separator = ", ")
 }
 
 @Composable
