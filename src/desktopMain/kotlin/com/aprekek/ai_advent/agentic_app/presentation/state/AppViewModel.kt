@@ -100,8 +100,7 @@ class AppViewModel(
         }
     }
 
-    fun updateActiveProfile(name: String, descriptionItems: List<String>) {
-        val profileId = state.activeProfileId ?: return
+    fun updateProfile(profileId: String, name: String, descriptionItems: List<String>) {
         scope.launch {
             runCatching {
                 updateProfileUseCase.execute(profileId, name, descriptionItems)

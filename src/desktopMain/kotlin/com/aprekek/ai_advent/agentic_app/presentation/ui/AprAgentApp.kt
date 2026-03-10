@@ -81,16 +81,16 @@ fun AprAgentApp(viewModel: AppViewModel) {
 
     var messageInput by remember { mutableStateOf("") }
     var showProfileDialog by remember { mutableStateOf(false) }
-    var showProfileEditDialog by remember { mutableStateOf(false) }
+    var editProfileId by remember { mutableStateOf<String?>(null) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
-    val activeProfile = state.profiles.firstOrNull { it.id == state.activeProfileId }
+    val editingProfile = editProfileId?.let { id -> state.profiles.firstOrNull { it.id == id } }
 
     MaterialTheme(colors = colors) {
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colors.background)) {
             Toolbar(
                 state = state,
                 onCreateProfileClick = { showProfileDialog = true },
-                onEditProfileClick = { showProfileEditDialog = true },
+                onEditProfileClick = { profileId -> editProfileId = profileId },
                 onDeleteProfileClick = viewModel::deleteProfile,
                 onProfileSelected = viewModel::switchProfile,
                 onCreateChatClick = viewModel::createChat,
@@ -163,16 +163,16 @@ fun AprAgentApp(viewModel: AppViewModel) {
             )
         }
 
-        if (showProfileEditDialog && activeProfile != null) {
+        if (editingProfile != null) {
             ProfileDialog(
                 title = "Редактировать профиль",
                 confirmTitle = "Сохранить",
-                initialName = activeProfile.name,
-                initialDescriptionItems = activeProfile.descriptionItems.map { it.value },
-                onDismiss = { showProfileEditDialog = false },
+                initialName = editingProfile.name,
+                initialDescriptionItems = editingProfile.descriptionItems.map { it.value },
+                onDismiss = { editProfileId = null },
                 onConfirm = { name, items ->
-                    viewModel.updateActiveProfile(name, items)
-                    showProfileEditDialog = false
+                    viewModel.updateProfile(editingProfile.id, name, items)
+                    editProfileId = null
                 }
             )
         }
@@ -193,7 +193,7 @@ fun AprAgentApp(viewModel: AppViewModel) {
 private fun Toolbar(
     state: com.aprekek.ai_advent.agentic_app.presentation.state.AppUiState,
     onCreateProfileClick: () -> Unit,
-    onEditProfileClick: () -> Unit,
+    onEditProfileClick: (String) -> Unit,
     onDeleteProfileClick: (String) -> Unit,
     onProfileSelected: (String) -> Unit,
     onCreateChatClick: () -> Unit,
@@ -231,6 +231,15 @@ private fun Toolbar(
                             Text(profile.name, modifier = Modifier.weight(1f))
                             IconButton(onClick = {
                                 showProfilesMenu = false
+                                onEditProfileClick(profile.id)
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Редактировать профиль ${profile.name}"
+                                )
+                            }
+                            IconButton(onClick = {
+                                showProfilesMenu = false
                                 onDeleteProfileClick(profile.id)
                             }) {
                                 Icon(
@@ -246,12 +255,6 @@ private fun Toolbar(
 
         OutlinedButton(onClick = onCreateProfileClick) {
             Text("Новый профиль")
-        }
-        IconButton(onClick = onEditProfileClick, enabled = state.activeProfileId != null) {
-            Icon(
-                imageVector = Icons.Default.Edit,
-                contentDescription = "Редактировать профиль"
-            )
         }
         OutlinedButton(onClick = onCreateChatClick) {
             Text("Новый чат")
