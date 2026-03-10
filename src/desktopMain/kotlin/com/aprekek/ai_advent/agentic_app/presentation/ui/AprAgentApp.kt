@@ -555,24 +555,23 @@ private fun RightToolsPanel(
 
             if (chatId == null) {
                 Text("Выберите чат слева")
-                return@Column
-            }
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colors.primary.copy(alpha = 0.08f)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+            } else {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colors.primary.copy(alpha = 0.08f)
                 ) {
-                    Text("Chat Context", style = MaterialTheme.typography.subtitle1)
-                    Text(
-                        text = summarizeContextItems(contextItems),
-                        style = MaterialTheme.typography.body2
-                    )
-                    OutlinedButton(onClick = onOpenChatContext) {
-                        Text("Chat Context")
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("Chat Context", style = MaterialTheme.typography.subtitle1)
+                        Text(
+                            text = summarizeContextItems(contextItems),
+                            style = MaterialTheme.typography.body2
+                        )
+                        OutlinedButton(onClick = onOpenChatContext) {
+                            Text("Chat Context")
+                        }
                     }
                 }
             }
@@ -599,53 +598,52 @@ private fun ChatContextDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (chatId == null) {
                     Text("Выберите чат слева")
-                    return@Column
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = draft,
-                        onValueChange = { draft = it },
-                        label = { Text("Context item") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedButton(
-                        onClick = {
-                            val normalized = draft.trim()
-                            if (normalized.isNotEmpty()) {
-                                editableItems.add(normalized)
-                                draft = ""
-                            }
-                        }
-                    ) {
-                        Text("Добавить")
-                    }
-                }
-
-                editableItems.forEachIndexed { index, item ->
+                } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedTextField(
-                            value = item,
-                            onValueChange = { updated -> editableItems[index] = updated },
+                            value = draft,
+                            onValueChange = { draft = it },
+                            label = { Text("Context item") },
                             modifier = Modifier.weight(1f)
                         )
-                        IconButton(onClick = {
-                            if (index in editableItems.indices) {
-                                editableItems.removeAt(index)
+                        OutlinedButton(
+                            onClick = {
+                                val normalized = draft.trim()
+                                if (normalized.isNotEmpty()) {
+                                    editableItems.add(normalized)
+                                    draft = ""
+                                }
                             }
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Удалить context item"
+                        ) {
+                            Text("Добавить")
+                        }
+                    }
+
+                    editableItems.forEachIndexed { index, item ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = item,
+                                onValueChange = { updated -> editableItems[index] = updated },
+                                modifier = Modifier.weight(1f)
                             )
+                            IconButton(onClick = {
+                                if (index in editableItems.indices) {
+                                    editableItems.removeAt(index)
+                                }
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Удалить context item"
+                                )
+                            }
                         }
                     }
                 }
