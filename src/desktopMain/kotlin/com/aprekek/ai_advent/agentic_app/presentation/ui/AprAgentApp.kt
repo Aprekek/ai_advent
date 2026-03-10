@@ -83,7 +83,13 @@ fun AprAgentApp(viewModel: AppViewModel) {
     var showProfileDialog by remember { mutableStateOf(false) }
     var editProfileId by remember { mutableStateOf<String?>(null) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
+    var showChatContextDialog by remember { mutableStateOf(false) }
     val editingProfile = editProfileId?.let { id -> state.profiles.firstOrNull { it.id == id } }
+    val selectedChatContextItems = state.chats
+        .firstOrNull { it.id == state.selectedChatId }
+        ?.contextItems
+        ?.map { it.value }
+        .orEmpty()
 
     MaterialTheme(colors = colors) {
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colors.background)) {
@@ -135,7 +141,8 @@ fun AprAgentApp(viewModel: AppViewModel) {
                     onStopMessage = viewModel::stopStreaming,
                     onChatSelected = viewModel::selectChat,
                     onDeleteChat = viewModel::deleteChat,
-                    onUpdateChatContextItems = viewModel::updateSelectedChatContextItems,
+                    chatContextItems = selectedChatContextItems,
+                    onOpenChatContext = { showChatContextDialog = true },
                     onResizeLeft = { dragDeltaPx ->
                         val current = state.panelLayoutState
                         val updatedWidth = (current.leftPanelWidthPx + dragDeltaPx).coerceIn(220f, 460f)
@@ -184,6 +191,18 @@ fun AprAgentApp(viewModel: AppViewModel) {
                 onConfirm = {
                     viewModel.saveApiKey(it)
                     showApiKeyDialog = false
+                }
+            )
+        }
+
+        if (showChatContextDialog) {
+            ChatContextDialog(
+                chatId = state.selectedChatId,
+                initialItems = selectedChatContextItems,
+                onDismiss = { showChatContextDialog = false },
+                onSave = { items ->
+                    viewModel.updateSelectedChatContextItems(items)
+                    showChatContextDialog = false
                 }
             )
         }
@@ -314,7 +333,8 @@ private fun DesktopLayout(
     onStopMessage: () -> Unit,
     onChatSelected: (String) -> Unit,
     onDeleteChat: (String) -> Unit,
-    onUpdateChatContextItems: (List<String>) -> Unit,
+    chatContextItems: List<String>,
+    onOpenChatContext: () -> Unit,
     onResizeLeft: (Float) -> Unit,
     onResizeRight: (Float) -> Unit
 ) {
@@ -344,16 +364,11 @@ private fun DesktopLayout(
         if (state.panelLayoutState.rightPanelVisible) {
             VerticalSplitter(onDrag = onResizeRight)
             val rightWidth = with(density) { state.panelLayoutState.rightPanelWidthPx.toDp() }
-            val selectedChatContextItems = state.chats
-                .firstOrNull { it.id == state.selectedChatId }
-                ?.contextItems
-                ?.map { it.value }
-                .orEmpty()
-            ChatContextPanel(
+            RightToolsPanel(
                 modifier = Modifier.width(rightWidth).fillMaxHeight(),
                 chatId = state.selectedChatId,
-                contextItems = selectedChatContextItems,
-                onSave = onUpdateChatContextItems
+                contextItems = chatContextItems,
+                onOpenChatContext = onOpenChatContext
             )
         }
     }
@@ -523,54 +538,93 @@ private fun ChatPanel(
 }
 
 @Composable
-private fun ChatContextPanel(
+private fun RightToolsPanel(
     modifier: Modifier,
     chatId: String?,
     contextItems: List<String>,
-    onSave: (List<String>) -> Unit
+    onOpenChatContext: () -> Unit
 ) {
-    var draft by remember(chatId) { mutableStateOf("") }
-    val editableItems = remember(chatId, contextItems) {
-        mutableStateListOf<String>().apply { addAll(contextItems) }
-    }
-
     Surface(modifier = modifier, color = MaterialTheme.colors.surface) {
         Column(
             modifier = Modifier.fillMaxSize().padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Контекст чата", style = MaterialTheme.typography.h6)
+            Text("Инструменты чата", style = MaterialTheme.typography.h6)
+            Divider()
+
             if (chatId == null) {
                 Text("Выберите чат слева")
                 return@Column
             }
 
-            Row(
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                color = MaterialTheme.colors.primary.copy(alpha = 0.08f)
             ) {
-                OutlinedTextField(
-                    value = draft,
-                    onValueChange = { draft = it },
-                    label = { Text("Context item") },
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedButton(
-                    onClick = {
-                        val normalized = draft.trim()
-                        if (normalized.isNotEmpty()) {
-                            editableItems.add(normalized)
-                            draft = ""
-                        }
-                    }
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("Добавить")
+                    Text("Chat Context", style = MaterialTheme.typography.subtitle1)
+                    Text(
+                        text = summarizeContextItems(contextItems),
+                        style = MaterialTheme.typography.body2
+                    )
+                    OutlinedButton(onClick = onOpenChatContext) {
+                        Text("Chat Context")
+                    }
                 }
             }
+        }
+    }
+}
 
-            if (editableItems.isNotEmpty()) {
-                Text("Текущие items")
+@Composable
+private fun ChatContextDialog(
+    chatId: String?,
+    initialItems: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (List<String>) -> Unit
+) {
+    var draft by remember(chatId) { mutableStateOf("") }
+    val editableItems = remember(chatId, initialItems) {
+        mutableStateListOf<String>().apply { addAll(initialItems) }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Chat Context") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (chatId == null) {
+                    Text("Выберите чат слева")
+                    return@Column
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { draft = it },
+                        label = { Text("Context item") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            val normalized = draft.trim()
+                            if (normalized.isNotEmpty()) {
+                                editableItems.add(normalized)
+                                draft = ""
+                            }
+                        }
+                    ) {
+                        Text("Добавить")
+                    }
+                }
+
                 editableItems.forEachIndexed { index, item ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -591,16 +645,28 @@ private fun ChatContextPanel(
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.weight(1f))
-            Button(
+        },
+        confirmButton = {
+            TextButton(
                 onClick = { onSave(editableItems.toList()) },
-                modifier = Modifier.fillMaxWidth()
+                enabled = chatId != null
             ) {
-                Text("Сохранить контекст")
+                Text("Сохранить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
             }
         }
-    }
+    )
+}
+
+private fun summarizeContextItems(items: List<String>): String {
+    if (items.isEmpty()) return "Контекст пока не добавлен."
+    val preview = items.take(3).joinToString(separator = " | ")
+    val suffix = if (items.size > 3) " (+${items.size - 3})" else ""
+    return "${items.size} item(s): $preview$suffix"
 }
 
 @Composable
