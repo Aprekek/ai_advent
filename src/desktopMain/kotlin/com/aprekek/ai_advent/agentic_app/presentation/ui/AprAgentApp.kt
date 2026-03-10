@@ -432,10 +432,11 @@ private fun ChatPanel(
     val listState = rememberLazyListState()
     val messages = state.messages
 
-    LaunchedEffect(messages.size, state.isAwaitingFirstToken) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.lastIndex)
-        }
+    LaunchedEffect(messages.size, state.isAwaitingFirstToken, state.selectedChatId) {
+        if (messages.isEmpty() || state.selectedChatId == null) return@LaunchedEffect
+        val targetIndex = messages.lastIndex
+        if (targetIndex < 0) return@LaunchedEffect
+        runCatching { listState.scrollToItem(targetIndex) }
     }
 
     Surface(modifier = modifier, color = MaterialTheme.colors.background) {
@@ -636,7 +637,11 @@ private fun ChatContextDialog(
                             onValueChange = { updated -> editableItems[index] = updated },
                             modifier = Modifier.weight(1f)
                         )
-                        IconButton(onClick = { editableItems.removeAt(index) }) {
+                        IconButton(onClick = {
+                            if (index in editableItems.indices) {
+                                editableItems.removeAt(index)
+                            }
+                        }) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = "Удалить context item"
@@ -747,7 +752,11 @@ private fun ProfileDialog(
                                 onValueChange = { updated -> descriptionItems[index] = updated },
                                 modifier = Modifier.weight(1f)
                             )
-                            IconButton(onClick = { descriptionItems.removeAt(index) }) {
+                            IconButton(onClick = {
+                                if (index in descriptionItems.indices) {
+                                    descriptionItems.removeAt(index)
+                                }
+                            }) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Удалить description item"
