@@ -21,6 +21,8 @@ import com.aprekek.ai_advent.agentic_app.domain.port.UserRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class StateMachineChatUseCase(
     private val chatRepository: ChatRepository,
@@ -30,11 +32,14 @@ class StateMachineChatUseCase(
     private val idGenerator: IdGenerator,
     private val timeProvider: TimeProvider
 ) {
+    private val actionMutex = Mutex()
+
     fun execute(
         profileId: String,
         chatId: String,
         action: StateMachineAction
     ): Flow<StateMachineProgress> = flow {
+        actionMutex.withLock {
         val chat = chatRepository.getChat(profileId, chatId)
             ?: throw IllegalStateException("Чат не найден")
         require(chat.mode == ChatMode.STATE_MACHINE) { "FSM use case поддерживает только STATE_MACHINE чаты" }
@@ -304,6 +309,7 @@ class StateMachineChatUseCase(
                 emit(StateMachineProgress.SessionUpdated(restarted))
                 emit(StateMachineProgress.Completed)
             }
+        }
         }
     }
 
