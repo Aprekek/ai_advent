@@ -565,12 +565,7 @@ private fun ChatPanel(
             } else {
                 if (isStateMachineChat && fsm != null) {
                     StateMachineHeader(
-                        session = fsm,
-                        isStreaming = state.isStreaming,
-                        onApprovePlan = onStateMachineApprovePlan,
-                        onContinue = onStateMachineContinue,
-                        onValidationRework = onStateMachineValidationRework,
-                        onValidationAcceptCurrent = onStateMachineValidationAcceptCurrent
+                        session = fsm
                     )
                 } else if (isStateMachineChat) {
                     Surface(
@@ -636,6 +631,18 @@ private fun ChatPanel(
                                     }
                                 }
                             }
+                        }
+                    }
+                    if (isStateMachineChat && fsm != null) {
+                        item {
+                            StateMachineInlineActions(
+                                session = fsm,
+                                isStreaming = state.isStreaming,
+                                onApprovePlan = onStateMachineApprovePlan,
+                                onContinue = onStateMachineContinue,
+                                onValidationRework = onStateMachineValidationRework,
+                                onValidationAcceptCurrent = onStateMachineValidationAcceptCurrent
+                            )
                         }
                     }
                 }
@@ -707,12 +714,7 @@ private fun ChatPanel(
 
 @Composable
 private fun StateMachineHeader(
-    session: StateMachineSession,
-    isStreaming: Boolean,
-    onApprovePlan: () -> Unit,
-    onContinue: () -> Unit,
-    onValidationRework: () -> Unit,
-    onValidationAcceptCurrent: () -> Unit
+    session: StateMachineSession
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -737,16 +739,42 @@ private fun StateMachineHeader(
                 }
                 Text(done)
             }
+        }
+    }
+}
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val showApprove = !isStreaming &&
-                    session.waitingForUserInput &&
-                    (session.stage == StateMachineStage.PLANNING || session.stage == StateMachineStage.CLARIFICATION) &&
-                    session.planDraft.isNotBlank()
-                val showContinue = !isStreaming &&
-                    !session.waitingForUserInput &&
-                    (session.stage == StateMachineStage.EXECUTION || session.stage == StateMachineStage.VALIDATION)
+@Composable
+private fun StateMachineInlineActions(
+    session: StateMachineSession,
+    isStreaming: Boolean,
+    onApprovePlan: () -> Unit,
+    onContinue: () -> Unit,
+    onValidationRework: () -> Unit,
+    onValidationAcceptCurrent: () -> Unit
+) {
+    val showApprove = !isStreaming &&
+        session.waitingForUserInput &&
+        (session.stage == StateMachineStage.PLANNING || session.stage == StateMachineStage.CLARIFICATION) &&
+        session.planDraft.isNotBlank()
+    val showContinue = !isStreaming &&
+        !session.waitingForUserInput &&
+        (session.stage == StateMachineStage.EXECUTION || session.stage == StateMachineStage.VALIDATION)
+    val showValidationChoice = !isStreaming &&
+        session.stage == StateMachineStage.VALIDATION &&
+        session.waitingForUserInput
 
+    if (!showApprove && !showContinue && !showValidationChoice) return
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End
+    ) {
+        Surface(color = MaterialTheme.colors.primary.copy(alpha = 0.12f)) {
+            Column(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalAlignment = Alignment.End
+            ) {
                 if (showApprove) {
                     OutlinedButton(onClick = onApprovePlan) {
                         Text("Перейти к выполнению")
@@ -757,10 +785,7 @@ private fun StateMachineHeader(
                         Text("Продолжить выполнение")
                     }
                 }
-            }
-
-            if (!isStreaming && session.stage == StateMachineStage.VALIDATION && session.waitingForUserInput) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (showValidationChoice) {
                     OutlinedButton(onClick = onValidationRework) {
                         Text("Переделать execution")
                     }
