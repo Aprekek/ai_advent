@@ -392,8 +392,7 @@ class StateMachineChatUseCase(
             StateMachineStage.EXECUTION -> """
                 You are in EXECUTION stage.
                 Follow ONLY approved plan below. Provide implementation/answer.
-                Approved plan:
-                ${session.approvedPlan}
+                The approved plan and execution context are provided in the USER message.
             """.trimIndent()
 
             StateMachineStage.VALIDATION -> """
