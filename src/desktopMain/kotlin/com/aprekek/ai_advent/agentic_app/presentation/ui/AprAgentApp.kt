@@ -534,7 +534,7 @@ private fun ChatPanel(
         val targetIndex = messages.lastIndex
         if (targetIndex < 0) return@LaunchedEffect
         isProgrammaticScroll = true
-        runCatching { listState.scrollToItem(targetIndex) }
+        runCatching { listState.scrollToItem(targetIndex, Int.MAX_VALUE) }
         isProgrammaticScroll = false
     }
 
@@ -552,8 +552,6 @@ private fun ChatPanel(
                 autoScrollEnabled = false
             } else if (atBottom && !isScrolling) {
                 autoScrollEnabled = true
-            } else if (!atBottom && !isProgrammaticScroll) {
-                autoScrollEnabled = false
             }
         }
     }
