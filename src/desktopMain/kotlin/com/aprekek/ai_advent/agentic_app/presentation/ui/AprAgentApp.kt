@@ -506,6 +506,16 @@ private fun ChatPanel(
     }
     val fsm = state.stateMachineSession
     val isStateMachineChat = state.selectedChatMode == ChatMode.STATE_MACHINE
+    val stopEnabled = if (isStateMachineChat) {
+        val stage = fsm?.stage
+        stage == StateMachineStage.PLANNING ||
+            stage == StateMachineStage.CLARIFICATION ||
+            stage == StateMachineStage.EXECUTION ||
+            stage == StateMachineStage.VALIDATION ||
+            state.isStreaming
+    } else {
+        state.isStreaming
+    }
     val canTypeInInput = when {
         state.isStreaming -> false
         !isStateMachineChat -> true
@@ -689,7 +699,7 @@ private fun ChatPanel(
                         }
                         OutlinedButton(
                             onClick = onStop,
-                            enabled = state.isStreaming
+                            enabled = stopEnabled
                         ) {
                             Text("Стоп")
                         }

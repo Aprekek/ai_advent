@@ -8,6 +8,7 @@ import com.aprekek.ai_advent.agentic_app.domain.model.ChatRole
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatThread
 import com.aprekek.ai_advent.agentic_app.domain.model.ProfileDescriptionItem
 import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineAction
+import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineDoneStatus
 import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineSession
 import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineStage
 import com.aprekek.ai_advent.agentic_app.domain.model.StreamEvent
@@ -130,6 +131,30 @@ class StateMachineChatUseCaseTest {
         assertEquals(StateMachineStage.PLANNING, session.stage)
         assertEquals(true, session.waitingForUserInput)
         assertNull(session.doneStatus)
+    }
+
+    @Test
+    fun `stop moves active session to done canceled and posts canceled message`() = runTest {
+        val repo = InMemoryChatRepository()
+        repo.createChat("u1", "FSM", ChatMode.STATE_MACHINE)
+        val useCase = buildUseCase(repo) { request ->
+            val system = request.messages.first().content
+            when {
+                system.contains("PLANNING stage") -> listOf("План из planning. full context")
+                else -> listOf("ok")
+            }
+        }
+
+        useCase.execute("u1", "chat-1", StateMachineAction.UserInput("start")).toList()
+        useCase.execute("u1", "chat-1", StateMachineAction.Stop).toList()
+
+        val session = repo.getChat("u1", "chat-1")?.stateMachineSession
+        assertNotNull(session)
+        assertEquals(StateMachineStage.DONE, session.stage)
+        assertEquals(StateMachineDoneStatus.CANCELED, session.doneStatus)
+
+        val messages = repo.listMessages("u1", "chat-1")
+        assertTrue(messages.any { it.role == ChatRole.ASSISTANT && it.content == "Canceled" })
     }
 
     private fun buildUseCase(

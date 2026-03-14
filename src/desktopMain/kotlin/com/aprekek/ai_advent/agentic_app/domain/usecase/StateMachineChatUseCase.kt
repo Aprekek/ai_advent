@@ -50,7 +50,11 @@ class StateMachineChatUseCase(
         val currentSession = chat.stateMachineSession
         when (action) {
             StateMachineAction.Stop -> {
-                val session = ensureSession(currentSession, taskSeed = "")
+                val session = currentSession
+                if (session == null || session.stage == StateMachineStage.DONE) {
+                    emit(StateMachineProgress.Completed)
+                    return@flow
+                }
                 val canceled = session.copy(
                     stage = StateMachineStage.DONE,
                     doneStatus = StateMachineDoneStatus.CANCELED,
