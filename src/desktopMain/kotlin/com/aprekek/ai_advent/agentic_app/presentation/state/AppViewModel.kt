@@ -264,6 +264,14 @@ class AppViewModel(
             }
 
             if (state.selectedChatMode == ChatMode.STATE_MACHINE) {
+                val localUserMessage = ChatMessage(
+                    id = "local-user-fsm",
+                    chatId = selectedChatId,
+                    role = ChatRole.USER,
+                    content = normalizedInput,
+                    createdAt = System.currentTimeMillis()
+                )
+                state = state.copy(messages = state.messages + localUserMessage)
                 runStateMachineAction(profileId, selectedChatId, StateMachineAction.UserInput(normalizedInput))
             } else {
                 runStandardStream(profileId, selectedChatId, normalizedInput)
