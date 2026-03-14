@@ -118,7 +118,7 @@ class StateMachineChatUseCase(
                         saveSession(profileId, chatId, nextSession)
                         emit(StateMachineProgress.SessionUpdated(nextSession))
                         if (fullContext) {
-                            appendAssistant(profileId, chatId, "Перейти к выполнению плана?")
+                            appendAssistant(profileId, chatId, "Перейти в выполнению плана?")
                         }
                         emit(StateMachineProgress.Completed)
                     }
@@ -156,7 +156,7 @@ class StateMachineChatUseCase(
                         saveSession(profileId, chatId, nextSession)
                         emit(StateMachineProgress.SessionUpdated(nextSession))
                         if (!needContext) {
-                            appendAssistant(profileId, chatId, "Перейти к выполнению плана?")
+                            appendAssistant(profileId, chatId, "Перейти в выполнению плана?")
                         }
                         emit(StateMachineProgress.Completed)
                     }
