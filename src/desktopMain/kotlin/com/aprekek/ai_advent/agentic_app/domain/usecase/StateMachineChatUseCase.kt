@@ -250,6 +250,9 @@ class StateMachineChatUseCase(
                             )
                         }
                         saveSession(profileId, chatId, updated)
+                        if (updated.stage == StateMachineStage.DONE && updated.doneStatus == StateMachineDoneStatus.DONE) {
+                            appendAssistant(profileId, chatId, "Done")
+                        }
                         emit(StateMachineProgress.SessionUpdated(updated))
                         emit(StateMachineProgress.Completed)
                     }
@@ -283,6 +286,7 @@ class StateMachineChatUseCase(
                     waitingForUserInput = false
                 )
                 saveSession(profileId, chatId, updated)
+                appendAssistant(profileId, chatId, "Done")
                 emit(StateMachineProgress.SessionUpdated(updated))
                 emit(StateMachineProgress.Completed)
             }
