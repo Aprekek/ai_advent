@@ -492,11 +492,12 @@ private fun ChatPanel(
     val listState = rememberLazyListState()
     val messages = state.messages
     var autoScrollEnabled by remember(state.selectedChatId) { mutableStateOf(true) }
+    var isProgrammaticScroll by remember(state.selectedChatId) { mutableStateOf(false) }
     val lastMessageContent = messages.lastOrNull()?.content.orEmpty()
     val nestedScrollConnection = remember(state.selectedChatId, listState) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source == NestedScrollSource.Drag) {
+                if (source == NestedScrollSource.Drag || source == NestedScrollSource.Fling) {
                     autoScrollEnabled = false
                 }
                 return Offset.Zero
@@ -531,7 +532,22 @@ private fun ChatPanel(
         if (!autoScrollEnabled) return@LaunchedEffect
         val targetIndex = messages.lastIndex
         if (targetIndex < 0) return@LaunchedEffect
+        isProgrammaticScroll = true
         runCatching { listState.scrollToItem(targetIndex) }
+        isProgrammaticScroll = false
+    }
+
+    LaunchedEffect(listState, state.selectedChatId) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .collect {
+                val atBottom = isAtBottom(listState)
+                if (atBottom) {
+                    autoScrollEnabled = true
+                } else if (!isProgrammaticScroll) {
+                    // Disable auto-scroll on any user-originated displacement, even tiny.
+                    autoScrollEnabled = false
+                }
+            }
     }
 
     Surface(modifier = modifier, color = MaterialTheme.colors.background) {
@@ -953,6 +969,17 @@ private fun isNearBottom(listState: androidx.compose.foundation.lazy.LazyListSta
     if (totalCount == 0) return true
     val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull() ?: return false
     return lastVisible.index >= totalCount - 1
+}
+
+private fun isAtBottom(listState: androidx.compose.foundation.lazy.LazyListState): Boolean {
+    val layoutInfo = listState.layoutInfo
+    val totalCount = layoutInfo.totalItemsCount
+    if (totalCount == 0) return true
+    val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull() ?: return false
+    if (lastVisible.index != totalCount - 1) return false
+    val viewportEnd = layoutInfo.viewportEndOffset
+    val lastItemEnd = lastVisible.offset + lastVisible.size
+    return lastItemEnd <= viewportEnd
 }
 
 @Composable
