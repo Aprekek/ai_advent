@@ -53,8 +53,10 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -64,6 +66,9 @@ import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -486,6 +491,18 @@ private fun ChatPanel(
 ) {
     val listState = rememberLazyListState()
     val messages = state.messages
+    var autoScrollEnabled by remember(state.selectedChatId) { mutableStateOf(true) }
+    val lastMessageContent = messages.lastOrNull()?.content.orEmpty()
+    val nestedScrollConnection = remember(state.selectedChatId, listState) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.Drag) {
+                    autoScrollEnabled = false
+                }
+                return Offset.Zero
+            }
+        }
+    }
     val fsm = state.stateMachineSession
     val isStateMachineChat = state.selectedChatMode == ChatMode.STATE_MACHINE
     val canTypeInInput = when {
@@ -496,8 +513,22 @@ private fun ChatPanel(
             (fsm.stage == StateMachineStage.PLANNING || fsm.stage == StateMachineStage.CLARIFICATION || fsm.stage == StateMachineStage.DONE)
     }
 
-    LaunchedEffect(messages.size, state.isAwaitingFirstToken, state.selectedChatId) {
+    LaunchedEffect(state.selectedChatId) {
+        autoScrollEnabled = true
+    }
+
+    LaunchedEffect(listState, state.selectedChatId) {
+        snapshotFlow { isNearBottom(listState) }
+            .collect { atBottom ->
+                if (atBottom) {
+                    autoScrollEnabled = true
+                }
+            }
+    }
+
+    LaunchedEffect(messages.size, lastMessageContent, state.selectedChatId, autoScrollEnabled) {
         if (messages.isEmpty() || state.selectedChatId == null) return@LaunchedEffect
+        if (!autoScrollEnabled) return@LaunchedEffect
         val targetIndex = messages.lastIndex
         if (targetIndex < 0) return@LaunchedEffect
         runCatching { listState.scrollToItem(targetIndex) }
@@ -536,7 +567,11 @@ private fun ChatPanel(
                     }
                 }
                 LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth().padding(12.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(12.dp)
+                        .nestedScroll(nestedScrollConnection),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     state = listState
                 ) {
@@ -910,6 +945,14 @@ private fun ChatContextDialog(
 private fun summarizeContextItems(items: List<String>): String {
     if (items.isEmpty()) return "Контекст пока не добавлен."
     return items.joinToString(separator = ", ")
+}
+
+private fun isNearBottom(listState: androidx.compose.foundation.lazy.LazyListState): Boolean {
+    val layoutInfo = listState.layoutInfo
+    val totalCount = layoutInfo.totalItemsCount
+    if (totalCount == 0) return true
+    val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull() ?: return false
+    return lastVisible.index >= totalCount - 1
 }
 
 @Composable
