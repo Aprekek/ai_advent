@@ -528,15 +528,6 @@ private fun ChatPanel(
         autoScrollEnabled = true
     }
 
-    LaunchedEffect(listState, state.selectedChatId) {
-        snapshotFlow { isNearBottom(listState) }
-            .collect { atBottom ->
-                if (atBottom) {
-                    autoScrollEnabled = true
-                }
-            }
-    }
-
     LaunchedEffect(messages.size, lastMessageContent, state.selectedChatId, autoScrollEnabled) {
         if (messages.isEmpty() || state.selectedChatId == null) return@LaunchedEffect
         if (!autoScrollEnabled) return@LaunchedEffect
@@ -998,14 +989,6 @@ private fun ChatContextDialog(
 private fun summarizeContextItems(items: List<String>): String {
     if (items.isEmpty()) return "Контекст пока не добавлен."
     return items.joinToString(separator = ", ")
-}
-
-private fun isNearBottom(listState: androidx.compose.foundation.lazy.LazyListState): Boolean {
-    val layoutInfo = listState.layoutInfo
-    val totalCount = layoutInfo.totalItemsCount
-    if (totalCount == 0) return true
-    val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull() ?: return false
-    return lastVisible.index >= totalCount - 1
 }
 
 private fun isAtBottom(listState: androidx.compose.foundation.lazy.LazyListState): Boolean {
