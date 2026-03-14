@@ -99,23 +99,22 @@ class StateMachineChatUseCase(
                         )
 
                         val cleanText = stripControlKeywords(assistantText).trim()
-                        val needContext = containsNeedContext(assistantText)
-                        val fullContext = containsFullContext(assistantText) || !needContext
+                        val fullContext = containsFullContext(assistantText)
 
-                        val nextSession = if (needContext) {
-                            inputSession.copy(
-                                stage = StateMachineStage.CLARIFICATION,
-                                waitingForUserInput = true,
-                                planDraft = cleanText,
-                                hasFullContext = false,
-                                doneStatus = null
-                            )
-                        } else {
+                        val nextSession = if (fullContext) {
                             inputSession.copy(
                                 stage = StateMachineStage.PLANNING,
                                 waitingForUserInput = true,
                                 planDraft = cleanText,
                                 hasFullContext = true,
+                                doneStatus = null
+                            )
+                        } else {
+                            inputSession.copy(
+                                stage = StateMachineStage.CLARIFICATION,
+                                waitingForUserInput = true,
+                                planDraft = cleanText,
+                                hasFullContext = false,
                                 doneStatus = null
                             )
                         }
@@ -144,25 +143,25 @@ class StateMachineChatUseCase(
                             emitProgress = { emit(it) }
                         )
                         val cleanText = stripControlKeywords(assistantText).trim()
-                        val needContext = containsNeedContext(assistantText)
-                        val nextSession = if (needContext) {
-                            restarted.copy(
-                                stage = StateMachineStage.CLARIFICATION,
-                                waitingForUserInput = true,
-                                planDraft = cleanText,
-                                hasFullContext = false
-                            )
-                        } else {
+                        val fullContext = containsFullContext(assistantText)
+                        val nextSession = if (fullContext) {
                             restarted.copy(
                                 stage = StateMachineStage.PLANNING,
                                 waitingForUserInput = true,
                                 planDraft = cleanText,
                                 hasFullContext = true
                             )
+                        } else {
+                            restarted.copy(
+                                stage = StateMachineStage.CLARIFICATION,
+                                waitingForUserInput = true,
+                                planDraft = cleanText,
+                                hasFullContext = false
+                            )
                         }
                         saveSession(profileId, chatId, restarted, nextSession)
                         emit(StateMachineProgress.SessionUpdated(nextSession))
-                        if (!needContext) {
+                        if (fullContext) {
                             appendAssistant(profileId, chatId, "Перейти к выполнению плана?")
                         }
                         emit(StateMachineProgress.Completed)
