@@ -281,7 +281,6 @@ class AppViewModel(
     }
 
     fun stateMachineApprovePlan() = runStateMachineControl(StateMachineAction.ApprovePlan)
-    fun stateMachineSkipClarification() = runStateMachineControl(StateMachineAction.SkipClarificationToExecution)
     fun stateMachineContinue() = runStateMachineControl(StateMachineAction.Continue)
     fun stateMachineValidationRework() = runStateMachineControl(StateMachineAction.ValidationRework)
     fun stateMachineValidationAcceptCurrent() = runStateMachineControl(StateMachineAction.ValidationAcceptCurrent)

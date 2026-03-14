@@ -163,7 +163,6 @@ fun AprAgentApp(viewModel: AppViewModel) {
                     },
                     onStopMessage = viewModel::stopStreaming,
                     onStateMachineApprovePlan = viewModel::stateMachineApprovePlan,
-                    onStateMachineSkipClarification = viewModel::stateMachineSkipClarification,
                     onStateMachineContinue = viewModel::stateMachineContinue,
                     onStateMachineValidationRework = viewModel::stateMachineValidationRework,
                     onStateMachineValidationAcceptCurrent = viewModel::stateMachineValidationAcceptCurrent,
@@ -370,7 +369,6 @@ private fun DesktopLayout(
     onSendMessage: () -> Unit,
     onStopMessage: () -> Unit,
     onStateMachineApprovePlan: () -> Unit,
-    onStateMachineSkipClarification: () -> Unit,
     onStateMachineContinue: () -> Unit,
     onStateMachineValidationRework: () -> Unit,
     onStateMachineValidationAcceptCurrent: () -> Unit,
@@ -403,7 +401,6 @@ private fun DesktopLayout(
             onSend = onSendMessage,
             onStop = onStopMessage,
             onStateMachineApprovePlan = onStateMachineApprovePlan,
-            onStateMachineSkipClarification = onStateMachineSkipClarification,
             onStateMachineContinue = onStateMachineContinue,
             onStateMachineValidationRework = onStateMachineValidationRework,
             onStateMachineValidationAcceptCurrent = onStateMachineValidationAcceptCurrent
@@ -484,7 +481,6 @@ private fun ChatPanel(
     onSend: () -> Unit,
     onStop: () -> Unit,
     onStateMachineApprovePlan: () -> Unit,
-    onStateMachineSkipClarification: () -> Unit,
     onStateMachineContinue: () -> Unit,
     onStateMachineValidationRework: () -> Unit,
     onStateMachineValidationAcceptCurrent: () -> Unit
@@ -572,7 +568,6 @@ private fun ChatPanel(
                         session = fsm,
                         isStreaming = state.isStreaming,
                         onApprovePlan = onStateMachineApprovePlan,
-                        onSkipClarification = onStateMachineSkipClarification,
                         onContinue = onStateMachineContinue,
                         onValidationRework = onStateMachineValidationRework,
                         onValidationAcceptCurrent = onStateMachineValidationAcceptCurrent
@@ -715,7 +710,6 @@ private fun StateMachineHeader(
     session: StateMachineSession,
     isStreaming: Boolean,
     onApprovePlan: () -> Unit,
-    onSkipClarification: () -> Unit,
     onContinue: () -> Unit,
     onValidationRework: () -> Unit,
     onValidationAcceptCurrent: () -> Unit
@@ -749,10 +743,6 @@ private fun StateMachineHeader(
                     session.waitingForUserInput &&
                     (session.stage == StateMachineStage.PLANNING || session.stage == StateMachineStage.CLARIFICATION) &&
                     session.planDraft.isNotBlank()
-                val showSkip = !isStreaming &&
-                    session.waitingForUserInput &&
-                    session.stage == StateMachineStage.CLARIFICATION &&
-                    session.planDraft.isNotBlank()
                 val showContinue = !isStreaming &&
                     !session.waitingForUserInput &&
                     (session.stage == StateMachineStage.EXECUTION || session.stage == StateMachineStage.VALIDATION)
@@ -760,11 +750,6 @@ private fun StateMachineHeader(
                 if (showApprove) {
                     OutlinedButton(onClick = onApprovePlan) {
                         Text("Перейти к выполнению")
-                    }
-                }
-                if (showSkip) {
-                    OutlinedButton(onClick = onSkipClarification) {
-                        Text("Пропустить уточнения")
                     }
                 }
                 if (showContinue) {
