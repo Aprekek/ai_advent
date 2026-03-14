@@ -19,7 +19,6 @@ import com.aprekek.ai_advent.agentic_app.domain.port.IdGenerator
 import com.aprekek.ai_advent.agentic_app.domain.port.TimeProvider
 import com.aprekek.ai_advent.agentic_app.domain.port.UserRepository
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -122,7 +121,7 @@ class StateMachineChatUseCase(
                         saveSession(profileId, chatId, inputSession, nextSession)
                         emit(StateMachineProgress.SessionUpdated(nextSession))
                         if (fullContext) {
-                            appendAssistant(profileId, chatId, "Перейти в выполнению плана?")
+                            appendAssistant(profileId, chatId, "Перейти к выполнению плана?")
                         }
                         emit(StateMachineProgress.Completed)
                     }
@@ -160,7 +159,7 @@ class StateMachineChatUseCase(
                         saveSession(profileId, chatId, restarted, nextSession)
                         emit(StateMachineProgress.SessionUpdated(nextSession))
                         if (!needContext) {
-                            appendAssistant(profileId, chatId, "Перейти в выполнению плана?")
+                            appendAssistant(profileId, chatId, "Перейти к выполнению плана?")
                         }
                         emit(StateMachineProgress.Completed)
                     }
@@ -451,7 +450,7 @@ class StateMachineChatUseCase(
     private fun isUiOnlyMessage(message: ChatMessage): Boolean {
         val text = message.content.trim()
         if (text.isEmpty()) return true
-        if (text == "Перейти в выполнению плана?") return true
+        if (text == "Перейти к выполнению плана?") return true
         if (text == "Done" || text == "Canceled") return true
         if (text.startsWith("Failed:")) return true
         if (text.startsWith("Transition:")) return true
