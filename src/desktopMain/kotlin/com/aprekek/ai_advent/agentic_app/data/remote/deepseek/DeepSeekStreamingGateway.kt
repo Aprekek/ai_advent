@@ -26,6 +26,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 
 class DeepSeekStreamingGateway(
@@ -47,7 +48,12 @@ class DeepSeekStreamingGateway(
             try {
                 streamOnce(request) { delta ->
                     emittedAnyDelta = true
-                    emit(StreamEvent.Delta(delta))
+                    splitDelta(delta).forEach { part ->
+                        emit(StreamEvent.Delta(part))
+                        // Keep stream visibly progressive in UI with ~60 FPS cadence.
+                        delay(STREAM_UI_DELAY_MS)
+                        yield()
+                    }
                 }
 
                 emit(StreamEvent.Completed)
@@ -183,7 +189,21 @@ class DeepSeekStreamingGateway(
         return exponential + jitter
     }
 
+    private fun splitDelta(value: String): List<String> {
+        if (value.length <= DELTA_CHUNK_SIZE) return listOf(value)
+        val chunks = mutableListOf<String>()
+        var start = 0
+        while (start < value.length) {
+            val end = (start + DELTA_CHUNK_SIZE).coerceAtMost(value.length)
+            chunks += value.substring(start, end)
+            start = end
+        }
+        return chunks
+    }
+
     companion object {
         private const val DEFAULT_ENDPOINT = "https://api.deepseek.com/v1/chat/completions"
+        private const val DELTA_CHUNK_SIZE = 12
+        private const val STREAM_UI_DELAY_MS = 16L
     }
 }
