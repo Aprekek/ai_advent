@@ -489,7 +489,8 @@ private fun ChatPanel(
     val canTypeInInput = when {
         state.isStreaming -> false
         !isStateMachineChat -> true
-        else -> fsm?.waitingForUserInput == true &&
+        fsm == null -> true
+        else -> fsm.waitingForUserInput &&
             (fsm.stage == StateMachineStage.PLANNING || fsm.stage == StateMachineStage.CLARIFICATION || fsm.stage == StateMachineStage.DONE)
     }
 
@@ -517,6 +518,20 @@ private fun ChatPanel(
                         onValidationRework = onStateMachineValidationRework,
                         onValidationAcceptCurrent = onStateMachineValidationAcceptCurrent
                     )
+                } else if (isStateMachineChat) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        color = MaterialTheme.colors.surface
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.HourglassTop, contentDescription = "Planning")
+                            Text("Planning: отправьте первичный промпт")
+                        }
+                    }
                 }
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(12.dp),
