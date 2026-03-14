@@ -22,11 +22,70 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 
 class StateMachineChatUseCaseTest {
+    @Test
+    fun `execution from planning sends approved plan as user prompt`() = runTest {
+        val repo = InMemoryChatRepository()
+        repo.createChat("u1", "FSM", ChatMode.STATE_MACHINE)
+        val captured = mutableListOf<ChatRequest>()
+        val useCase = buildUseCase(repo) { request ->
+            captured += request
+            val system = request.messages.first().content
+            when {
+                system.contains("PLANNING stage") -> listOf("План из planning. full context")
+                system.contains("EXECUTION stage") -> listOf("execution")
+                system.contains("VALIDATION stage") -> listOf("Approve")
+                else -> listOf("unknown")
+            }
+        }
+
+        useCase.execute("u1", "chat-1", StateMachineAction.UserInput("start")).toList()
+        useCase.execute("u1", "chat-1", StateMachineAction.ApprovePlan).toList()
+        useCase.execute("u1", "chat-1", StateMachineAction.Continue).toList()
+
+        val executionRequest = captured.first { it.messages.first().content.contains("EXECUTION stage") }
+        val executionUserPrompt = executionRequest.messages.last().content
+        assertEquals("План из planning.", executionUserPrompt)
+    }
+
+    @Test
+    fun `execution from validation includes plan previous execution and validation feedback`() = runTest {
+        val repo = InMemoryChatRepository()
+        repo.createChat("u1", "FSM", ChatMode.STATE_MACHINE)
+        val captured = mutableListOf<ChatRequest>()
+        val useCase = buildUseCase(repo) { request ->
+            captured += request
+            val system = request.messages.first().content
+            when {
+                system.contains("PLANNING stage") -> listOf("Итоговый план. full context")
+                system.contains("EXECUTION stage") -> listOf("Результат execution")
+                system.contains("VALIDATION stage") -> listOf("Найдены отклонения. Decline")
+                else -> listOf("unknown")
+            }
+        }
+
+        useCase.execute("u1", "chat-1", StateMachineAction.UserInput("start")).toList()
+        useCase.execute("u1", "chat-1", StateMachineAction.ApprovePlan).toList()
+        useCase.execute("u1", "chat-1", StateMachineAction.Continue).toList()
+        useCase.execute("u1", "chat-1", StateMachineAction.Continue).toList()
+        useCase.execute("u1", "chat-1", StateMachineAction.ValidationRework).toList()
+        useCase.execute("u1", "chat-1", StateMachineAction.Continue).toList()
+
+        val executionRequests = captured.filter { it.messages.first().content.contains("EXECUTION stage") }
+        val reworkPrompt = executionRequests.last().messages.last().content
+        assertTrue(reworkPrompt.contains("Approved plan from Planning:"))
+        assertTrue(reworkPrompt.contains("Итоговый план."))
+        assertTrue(reworkPrompt.contains("Previous Execution result:"))
+        assertTrue(reworkPrompt.contains("Результат execution"))
+        assertTrue(reworkPrompt.contains("Validation feedback:"))
+        assertTrue(reworkPrompt.contains("Найдены отклонения."))
+    }
+
     @Test
     fun `moves planning to clarification when assistant asks for more context`() = runTest {
         val repo = InMemoryChatRepository()

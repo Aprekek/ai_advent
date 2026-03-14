@@ -429,7 +429,7 @@ class StateMachineChatUseCase(
                     id = "fsm-task",
                     chatId = chat.id,
                     role = ChatRole.USER,
-                    content = session.task,
+                    content = executionUserPrompt(session),
                     createdAt = now
                 )
             )
@@ -452,6 +452,27 @@ class StateMachineChatUseCase(
         if (text.startsWith("Failed:")) return true
         if (text.startsWith("Transition:")) return true
         return false
+    }
+
+    private fun executionUserPrompt(session: StateMachineSession): String {
+        val approvedPlan = session.approvedPlan.trim()
+        val execution = session.executionResult.trim()
+        val validation = session.validationResult.trim()
+
+        return if (execution.isNotEmpty() && validation.isNotEmpty()) {
+            buildString {
+                appendLine("Approved plan from Planning:")
+                appendLine(approvedPlan)
+                appendLine()
+                appendLine("Previous Execution result:")
+                appendLine(execution)
+                appendLine()
+                appendLine("Validation feedback:")
+                append(validation)
+            }.trim()
+        } else {
+            approvedPlan
+        }
     }
 
     private suspend fun appendUser(profileId: String, chatId: String, text: String) {
