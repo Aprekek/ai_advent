@@ -38,8 +38,10 @@ import androidx.compose.material.TextField
 import androidx.compose.material.darkColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
@@ -663,13 +665,13 @@ private fun StateMachineHeader(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                StageBadge(title = "Planning", stage = StateMachineStage.PLANNING, current = session.stage)
+                StageBadge(title = "Planning", status = mainStageStatus(MainStage.PLANNING, session))
                 Text("→")
-                StageBadge(title = "Execution", stage = StateMachineStage.EXECUTION, current = session.stage)
+                StageBadge(title = "Execution", status = mainStageStatus(MainStage.EXECUTION, session))
                 Text("→")
-                StageBadge(title = "Validation", stage = StateMachineStage.VALIDATION, current = session.stage)
+                StageBadge(title = "Validation", status = mainStageStatus(MainStage.VALIDATION, session))
                 Text("→")
-                StageBadge(title = "Done", stage = StateMachineStage.DONE, current = session.stage)
+                StageBadge(title = "Done", status = mainStageStatus(MainStage.DONE, session))
             }
 
             if (session.stage == StateMachineStage.DONE) {
@@ -723,13 +725,14 @@ private fun StateMachineHeader(
 @Composable
 private fun StageBadge(
     title: String,
-    stage: StateMachineStage,
-    current: StateMachineStage
+    status: StageVisualStatus
 ) {
-    val icon = when {
-        stage == current -> Icons.Default.HourglassTop
-        stageDone(stage, current) -> Icons.Default.CheckCircle
-        else -> Icons.Default.RadioButtonUnchecked
+    val icon = when (status) {
+        StageVisualStatus.PENDING -> Icons.Default.RadioButtonUnchecked
+        StageVisualStatus.IN_PROGRESS -> Icons.Default.HourglassTop
+        StageVisualStatus.COMPLETED -> Icons.Default.CheckCircle
+        StageVisualStatus.CANCELED -> Icons.Default.Cancel
+        StageVisualStatus.FAILED -> Icons.Default.Error
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Icon(icon, contentDescription = title)
@@ -737,14 +740,39 @@ private fun StageBadge(
     }
 }
 
-private fun stageDone(stage: StateMachineStage, current: StateMachineStage): Boolean {
-    val order = listOf(
-        StateMachineStage.PLANNING,
-        StateMachineStage.EXECUTION,
-        StateMachineStage.VALIDATION,
-        StateMachineStage.DONE
-    )
-    return order.indexOf(stage) < order.indexOf(current)
+private enum class MainStage {
+    PLANNING, EXECUTION, VALIDATION, DONE
+}
+
+private enum class StageVisualStatus {
+    PENDING,
+    IN_PROGRESS,
+    COMPLETED,
+    CANCELED,
+    FAILED
+}
+
+private fun mainStageStatus(mainStage: MainStage, session: StateMachineSession): StageVisualStatus {
+    if (mainStage == MainStage.DONE && session.stage == StateMachineStage.DONE) {
+        return when (session.doneStatus ?: StateMachineDoneStatus.DONE) {
+            StateMachineDoneStatus.DONE -> StageVisualStatus.COMPLETED
+            StateMachineDoneStatus.CANCELED -> StageVisualStatus.CANCELED
+            StateMachineDoneStatus.FAILED -> StageVisualStatus.FAILED
+        }
+    }
+
+    val currentMainStage = when (session.stage) {
+        StateMachineStage.PLANNING, StateMachineStage.CLARIFICATION -> MainStage.PLANNING
+        StateMachineStage.EXECUTION -> MainStage.EXECUTION
+        StateMachineStage.VALIDATION -> MainStage.VALIDATION
+        StateMachineStage.DONE -> MainStage.DONE
+    }
+
+    return when {
+        mainStage.ordinal < currentMainStage.ordinal -> StageVisualStatus.COMPLETED
+        mainStage.ordinal == currentMainStage.ordinal && mainStage != MainStage.DONE -> StageVisualStatus.IN_PROGRESS
+        else -> StageVisualStatus.PENDING
+    }
 }
 
 @Composable
