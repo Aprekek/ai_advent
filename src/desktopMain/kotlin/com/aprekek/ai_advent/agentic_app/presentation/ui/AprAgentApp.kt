@@ -684,36 +684,41 @@ private fun StateMachineHeader(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val approveEnabled = !isStreaming &&
+                val showApprove = !isStreaming &&
                     session.waitingForUserInput &&
                     (session.stage == StateMachineStage.PLANNING || session.stage == StateMachineStage.CLARIFICATION) &&
                     session.planDraft.isNotBlank()
-                OutlinedButton(onClick = onApprovePlan, enabled = approveEnabled) {
-                    Text("Перейти к выполнению")
-                }
-
-                val skipEnabled = !isStreaming &&
+                val showSkip = !isStreaming &&
                     session.waitingForUserInput &&
                     session.stage == StateMachineStage.CLARIFICATION &&
                     session.planDraft.isNotBlank()
-                OutlinedButton(onClick = onSkipClarification, enabled = skipEnabled) {
-                    Text("Пропустить уточнения")
-                }
-
-                val continueEnabled = !isStreaming &&
+                val showContinue = !isStreaming &&
                     !session.waitingForUserInput &&
                     (session.stage == StateMachineStage.EXECUTION || session.stage == StateMachineStage.VALIDATION)
-                OutlinedButton(onClick = onContinue, enabled = continueEnabled) {
-                    Text("Продолжить выполнение")
+
+                if (showApprove) {
+                    OutlinedButton(onClick = onApprovePlan) {
+                        Text("Перейти к выполнению")
+                    }
+                }
+                if (showSkip) {
+                    OutlinedButton(onClick = onSkipClarification) {
+                        Text("Пропустить уточнения")
+                    }
+                }
+                if (showContinue) {
+                    OutlinedButton(onClick = onContinue) {
+                        Text("Продолжить выполнение")
+                    }
                 }
             }
 
-            if (session.stage == StateMachineStage.VALIDATION && session.waitingForUserInput) {
+            if (!isStreaming && session.stage == StateMachineStage.VALIDATION && session.waitingForUserInput) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onValidationRework, enabled = !isStreaming) {
+                    OutlinedButton(onClick = onValidationRework) {
                         Text("Переделать execution")
                     }
-                    OutlinedButton(onClick = onValidationAcceptCurrent, enabled = !isStreaming) {
+                    OutlinedButton(onClick = onValidationAcceptCurrent) {
                         Text("Принять текущее")
                     }
                 }
