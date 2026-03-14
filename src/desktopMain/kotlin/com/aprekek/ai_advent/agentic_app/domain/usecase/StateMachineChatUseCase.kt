@@ -107,6 +107,7 @@ class StateMachineChatUseCase(
                                 stage = StateMachineStage.CLARIFICATION,
                                 waitingForUserInput = true,
                                 planDraft = cleanText,
+                                hasFullContext = false,
                                 doneStatus = null
                             )
                         } else {
@@ -114,6 +115,7 @@ class StateMachineChatUseCase(
                                 stage = StateMachineStage.PLANNING,
                                 waitingForUserInput = true,
                                 planDraft = cleanText,
+                                hasFullContext = true,
                                 doneStatus = null
                             )
                         }
@@ -147,13 +149,15 @@ class StateMachineChatUseCase(
                             restarted.copy(
                                 stage = StateMachineStage.CLARIFICATION,
                                 waitingForUserInput = true,
-                                planDraft = cleanText
+                                planDraft = cleanText,
+                                hasFullContext = false
                             )
                         } else {
                             restarted.copy(
                                 stage = StateMachineStage.PLANNING,
                                 waitingForUserInput = true,
-                                planDraft = cleanText
+                                planDraft = cleanText,
+                                hasFullContext = true
                             )
                         }
                         saveSession(profileId, chatId, restarted, nextSession)
@@ -176,6 +180,7 @@ class StateMachineChatUseCase(
                     "Подтверждение плана доступно только на стадии планирования"
                 }
                 require(session.planDraft.isNotBlank()) { "Нет сформированного плана" }
+                require(session.hasFullContext) { "Контекст неполный. Используйте пропуск уточнений или уточните задачу." }
                 val updated = session.copy(
                     stage = StateMachineStage.EXECUTION,
                     waitingForUserInput = false,
@@ -188,8 +193,8 @@ class StateMachineChatUseCase(
 
             StateMachineAction.SkipClarificationToExecution -> {
                 val session = requireSession(currentSession)
-                require(session.stage == StateMachineStage.CLARIFICATION) {
-                    "Пропуск уточнений доступен только в clarification"
+                require(session.stage == StateMachineStage.PLANNING || session.stage == StateMachineStage.CLARIFICATION) {
+                    "Пропуск уточнений доступен только на стадии planning/clarification"
                 }
                 require(session.planDraft.isNotBlank()) { "Нет плана для выполнения" }
                 val updated = session.copy(
@@ -563,6 +568,7 @@ class StateMachineChatUseCase(
             sessionStartedAt = timeProvider.nowMillis(),
             doneStatus = null,
             planDraft = "",
+            hasFullContext = false,
             approvedPlan = "",
             executionResult = "",
             validationResult = "",

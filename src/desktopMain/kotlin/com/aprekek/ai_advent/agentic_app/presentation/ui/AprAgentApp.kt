@@ -163,6 +163,7 @@ fun AprAgentApp(viewModel: AppViewModel) {
                     },
                     onStopMessage = viewModel::stopStreaming,
                     onStateMachineApprovePlan = viewModel::stateMachineApprovePlan,
+                    onStateMachineSkipClarification = viewModel::stateMachineSkipClarification,
                     onStateMachineContinue = viewModel::stateMachineContinue,
                     onStateMachineValidationRework = viewModel::stateMachineValidationRework,
                     onStateMachineValidationAcceptCurrent = viewModel::stateMachineValidationAcceptCurrent,
@@ -369,6 +370,7 @@ private fun DesktopLayout(
     onSendMessage: () -> Unit,
     onStopMessage: () -> Unit,
     onStateMachineApprovePlan: () -> Unit,
+    onStateMachineSkipClarification: () -> Unit,
     onStateMachineContinue: () -> Unit,
     onStateMachineValidationRework: () -> Unit,
     onStateMachineValidationAcceptCurrent: () -> Unit,
@@ -401,6 +403,7 @@ private fun DesktopLayout(
             onSend = onSendMessage,
             onStop = onStopMessage,
             onStateMachineApprovePlan = onStateMachineApprovePlan,
+            onStateMachineSkipClarification = onStateMachineSkipClarification,
             onStateMachineContinue = onStateMachineContinue,
             onStateMachineValidationRework = onStateMachineValidationRework,
             onStateMachineValidationAcceptCurrent = onStateMachineValidationAcceptCurrent
@@ -481,6 +484,7 @@ private fun ChatPanel(
     onSend: () -> Unit,
     onStop: () -> Unit,
     onStateMachineApprovePlan: () -> Unit,
+    onStateMachineSkipClarification: () -> Unit,
     onStateMachineContinue: () -> Unit,
     onStateMachineValidationRework: () -> Unit,
     onStateMachineValidationAcceptCurrent: () -> Unit
@@ -639,6 +643,7 @@ private fun ChatPanel(
                                 session = fsm,
                                 isStreaming = state.isStreaming,
                                 onApprovePlan = onStateMachineApprovePlan,
+                                onSkipClarification = onStateMachineSkipClarification,
                                 onContinue = onStateMachineContinue,
                                 onValidationRework = onStateMachineValidationRework,
                                 onValidationAcceptCurrent = onStateMachineValidationAcceptCurrent
@@ -748,6 +753,7 @@ private fun StateMachineInlineActions(
     session: StateMachineSession,
     isStreaming: Boolean,
     onApprovePlan: () -> Unit,
+    onSkipClarification: () -> Unit,
     onContinue: () -> Unit,
     onValidationRework: () -> Unit,
     onValidationAcceptCurrent: () -> Unit
@@ -755,7 +761,13 @@ private fun StateMachineInlineActions(
     val showApprove = !isStreaming &&
         session.waitingForUserInput &&
         (session.stage == StateMachineStage.PLANNING || session.stage == StateMachineStage.CLARIFICATION) &&
-        session.planDraft.isNotBlank()
+        session.planDraft.isNotBlank() &&
+        session.hasFullContext
+    val showSkip = !isStreaming &&
+        session.waitingForUserInput &&
+        (session.stage == StateMachineStage.PLANNING || session.stage == StateMachineStage.CLARIFICATION) &&
+        session.planDraft.isNotBlank() &&
+        !session.hasFullContext
     val showContinue = !isStreaming &&
         !session.waitingForUserInput &&
         (session.stage == StateMachineStage.EXECUTION || session.stage == StateMachineStage.VALIDATION)
@@ -763,7 +775,7 @@ private fun StateMachineInlineActions(
         session.stage == StateMachineStage.VALIDATION &&
         session.waitingForUserInput
 
-    if (!showApprove && !showContinue && !showValidationChoice) return
+    if (!showApprove && !showSkip && !showContinue && !showValidationChoice) return
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -778,6 +790,11 @@ private fun StateMachineInlineActions(
                 if (showApprove) {
                     OutlinedButton(onClick = onApprovePlan) {
                         Text("Перейти к выполнению")
+                    }
+                }
+                if (showSkip) {
+                    OutlinedButton(onClick = onSkipClarification) {
+                        Text("Пропустить уточнения и перейти к выполнению с текущим контекстом")
                     }
                 }
                 if (showContinue) {

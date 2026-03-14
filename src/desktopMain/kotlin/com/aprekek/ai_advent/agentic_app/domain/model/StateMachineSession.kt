@@ -11,6 +11,7 @@ data class StateMachineSession(
     val task: String = "",
     val sessionStartedAt: Long = 0L,
     val planDraft: String = "",
+    val hasFullContext: Boolean = false,
     val approvedPlan: String = "",
     val executionResult: String = "",
     val validationResult: String = "",
