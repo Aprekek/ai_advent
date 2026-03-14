@@ -438,9 +438,20 @@ class StateMachineChatUseCase(
             else -> {
                 val sessionHistory = chatRepository.listMessages(profileId, chat.id)
                     .filter { it.createdAt >= session.sessionStartedAt }
+                    .filterNot(::isUiOnlyMessage)
                 listOf(system) + sessionHistory
             }
         }
+    }
+
+    private fun isUiOnlyMessage(message: ChatMessage): Boolean {
+        val text = message.content.trim()
+        if (text.isEmpty()) return true
+        if (text == "Перейти в выполнению плана?") return true
+        if (text == "Done" || text == "Canceled") return true
+        if (text.startsWith("Failed:")) return true
+        if (text.startsWith("Transition:")) return true
+        return false
     }
 
     private suspend fun appendUser(profileId: String, chatId: String, text: String) {
