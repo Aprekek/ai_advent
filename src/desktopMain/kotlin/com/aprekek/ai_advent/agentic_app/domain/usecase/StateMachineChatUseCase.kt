@@ -57,7 +57,7 @@ class StateMachineChatUseCase(
                     waitingForUserInput = false,
                     lastFailureReason = null
                 )
-                saveSession(profileId, chatId, canceled)
+                saveSession(profileId, chatId, session, canceled)
                 appendAssistant(profileId, chatId, "Canceled")
                 emit(StateMachineProgress.SessionUpdated(canceled))
                 emit(StateMachineProgress.Completed)
@@ -75,7 +75,7 @@ class StateMachineChatUseCase(
                             appendUser(profileId, chatId, normalized)
                             appendAssistant(profileId, chatId, invariantViolation)
                             val updated = session.copy(waitingForUserInput = true)
-                            saveSession(profileId, chatId, updated)
+                            saveSession(profileId, chatId, session, updated)
                             emit(StateMachineProgress.SessionUpdated(updated))
                             emit(StateMachineProgress.Completed)
                             return@flow
@@ -83,7 +83,7 @@ class StateMachineChatUseCase(
 
                         appendUser(profileId, chatId, normalized)
                         val inputSession = if (session.task.isBlank()) session.copy(task = normalized) else session
-                        saveSession(profileId, chatId, inputSession)
+                        saveSession(profileId, chatId, session, inputSession)
                         emit(StateMachineProgress.SessionUpdated(inputSession.copy(waitingForUserInput = false)))
 
                         val assistantText = streamAssistant(
@@ -115,7 +115,7 @@ class StateMachineChatUseCase(
                             )
                         }
 
-                        saveSession(profileId, chatId, nextSession)
+                        saveSession(profileId, chatId, inputSession, nextSession)
                         emit(StateMachineProgress.SessionUpdated(nextSession))
                         if (fullContext) {
                             appendAssistant(profileId, chatId, "Перейти в выполнению плана?")
@@ -126,7 +126,7 @@ class StateMachineChatUseCase(
                     StateMachineStage.DONE -> {
                         // Start a new FSM cycle after completion.
                         val restarted = freshSession(normalized)
-                        saveSession(profileId, chatId, restarted)
+                        saveSession(profileId, chatId, session, restarted)
                         emit(StateMachineProgress.SessionUpdated(restarted))
                         appendUser(profileId, chatId, normalized)
 
@@ -153,7 +153,7 @@ class StateMachineChatUseCase(
                                 planDraft = cleanText
                             )
                         }
-                        saveSession(profileId, chatId, nextSession)
+                        saveSession(profileId, chatId, restarted, nextSession)
                         emit(StateMachineProgress.SessionUpdated(nextSession))
                         if (!needContext) {
                             appendAssistant(profileId, chatId, "Перейти в выполнению плана?")
@@ -178,7 +178,7 @@ class StateMachineChatUseCase(
                     waitingForUserInput = false,
                     approvedPlan = session.planDraft
                 )
-                saveSession(profileId, chatId, updated)
+                saveSession(profileId, chatId, session, updated)
                 emit(StateMachineProgress.SessionUpdated(updated))
                 emit(StateMachineProgress.Completed)
             }
@@ -194,7 +194,7 @@ class StateMachineChatUseCase(
                     waitingForUserInput = false,
                     approvedPlan = session.planDraft
                 )
-                saveSession(profileId, chatId, updated)
+                saveSession(profileId, chatId, session, updated)
                 emit(StateMachineProgress.SessionUpdated(updated))
                 emit(StateMachineProgress.Completed)
             }
@@ -217,7 +217,7 @@ class StateMachineChatUseCase(
                             waitingForUserInput = false,
                             executionResult = text.trim()
                         )
-                        saveSession(profileId, chatId, updated)
+                        saveSession(profileId, chatId, session, updated)
                         emit(StateMachineProgress.SessionUpdated(updated))
                         emit(StateMachineProgress.Completed)
                     }
@@ -249,7 +249,7 @@ class StateMachineChatUseCase(
                                 validationResult = text.trim()
                             )
                         }
-                        saveSession(profileId, chatId, updated)
+                        saveSession(profileId, chatId, session, updated)
                         if (updated.stage == StateMachineStage.DONE && updated.doneStatus == StateMachineDoneStatus.DONE) {
                             appendAssistant(profileId, chatId, "Done")
                         }
@@ -270,7 +270,7 @@ class StateMachineChatUseCase(
                     stage = StateMachineStage.EXECUTION,
                     waitingForUserInput = false
                 )
-                saveSession(profileId, chatId, updated)
+                saveSession(profileId, chatId, session, updated)
                 emit(StateMachineProgress.SessionUpdated(updated))
                 emit(StateMachineProgress.Completed)
             }
@@ -285,7 +285,7 @@ class StateMachineChatUseCase(
                     doneStatus = StateMachineDoneStatus.DONE,
                     waitingForUserInput = false
                 )
-                saveSession(profileId, chatId, updated)
+                saveSession(profileId, chatId, session, updated)
                 appendAssistant(profileId, chatId, "Done")
                 emit(StateMachineProgress.SessionUpdated(updated))
                 emit(StateMachineProgress.Completed)
@@ -344,7 +344,7 @@ class StateMachineChatUseCase(
                 waitingForUserInput = false,
                 lastFailureReason = error.message ?: "Не удалось выполнить стадию"
             )
-            saveSession(profileId, chat.id, failed)
+            saveSession(profileId, chat.id, session, failed)
             emitProgress(StateMachineProgress.SessionUpdated(failed))
             appendAssistant(profileId, chat.id, "Failed: ${failed.lastFailureReason}")
             throw error
@@ -464,8 +464,41 @@ class StateMachineChatUseCase(
         )
     }
 
-    private suspend fun saveSession(profileId: String, chatId: String, session: StateMachineSession) {
+    private suspend fun appendSystem(profileId: String, chatId: String, text: String) {
+        chatRepository.appendMessage(
+            userId = profileId,
+            chatId = chatId,
+            message = ChatMessage(
+                id = idGenerator.nextId(),
+                chatId = chatId,
+                role = ChatRole.SYSTEM,
+                content = text,
+                createdAt = timeProvider.nowMillis()
+            )
+        )
+    }
+
+    private suspend fun saveSession(
+        profileId: String,
+        chatId: String,
+        previousSession: StateMachineSession?,
+        session: StateMachineSession
+    ) {
+        val previousMainStage = previousSession?.stage?.toMainStageName()
+        val nextMainStage = session.stage.toMainStageName()
+        if (previousMainStage != null && previousMainStage != nextMainStage) {
+            appendSystem(profileId, chatId, "Transition: $previousMainStage -> $nextMainStage")
+        }
         chatRepository.updateStateMachineSession(profileId, chatId, session)
+    }
+
+    private fun StateMachineStage.toMainStageName(): String {
+        return when (this) {
+            StateMachineStage.PLANNING, StateMachineStage.CLARIFICATION -> "Planning"
+            StateMachineStage.EXECUTION -> "Execution"
+            StateMachineStage.VALIDATION -> "Validation"
+            StateMachineStage.DONE -> "Done"
+        }
     }
 
     private fun requireSession(session: StateMachineSession?): StateMachineSession {
