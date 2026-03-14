@@ -298,13 +298,16 @@ class StateMachineChatUseCase(
         emitProgress: suspend (StateMachineProgress) -> Unit
     ): String {
         val requestMessages = buildRequestMessages(profileId, chat, session, stage)
-        val buffer = StringBuilder()
+        val rawBuffer = StringBuilder()
         var persisted = false
 
         suspend fun persistIfNeeded() {
-            if (persisted || buffer.isEmpty()) return
+            if (persisted || rawBuffer.isEmpty()) return
             persisted = true
-            appendAssistant(profileId, chat.id, buffer.toString())
+            val clean = stripControlKeywords(rawBuffer.toString()).trim()
+            if (clean.isNotEmpty()) {
+                appendAssistant(profileId, chat.id, clean)
+            }
         }
 
         try {
@@ -317,8 +320,8 @@ class StateMachineChatUseCase(
                 when (event) {
                     StreamEvent.Started -> Unit
                     is StreamEvent.Delta -> {
-                        buffer.append(event.value)
-                        emitProgress(StateMachineProgress.PartialAssistant(buffer.toString()))
+                        rawBuffer.append(event.value)
+                        emitProgress(StateMachineProgress.PartialAssistant(stripControlKeywords(rawBuffer.toString())))
                     }
                     is StreamEvent.Reconnecting -> emitProgress(StateMachineProgress.Reconnecting(event.attempt))
                     StreamEvent.Completed -> {
@@ -343,7 +346,7 @@ class StateMachineChatUseCase(
             throw error
         }
 
-        return buffer.toString()
+        return rawBuffer.toString()
     }
 
     private suspend fun buildRequestMessages(
