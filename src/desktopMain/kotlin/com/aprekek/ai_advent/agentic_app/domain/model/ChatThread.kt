@@ -9,7 +9,9 @@ data class ChatThread(
     val title: String,
     val createdAt: Long,
     val updatedAt: Long,
-    val contextItems: List<ChatContextItem> = emptyList()
+    val contextItems: List<ChatContextItem> = emptyList(),
+    val mode: ChatMode = ChatMode.STANDARD,
+    val stateMachineSession: StateMachineSession? = null
 )
 
 @Serializable

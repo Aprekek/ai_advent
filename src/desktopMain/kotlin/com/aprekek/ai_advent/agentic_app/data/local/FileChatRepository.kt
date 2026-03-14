@@ -2,7 +2,9 @@ package com.aprekek.ai_advent.agentic_app.data.local
 
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatContextItem
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatMessage
+import com.aprekek.ai_advent.agentic_app.domain.model.ChatMode
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatRole
+import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineSession
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatThread
 import com.aprekek.ai_advent.agentic_app.domain.port.ChatRepository
 import com.aprekek.ai_advent.agentic_app.domain.port.IdGenerator
@@ -21,14 +23,15 @@ class FileChatRepository(
         return profileStateStore.read(userId).chats.firstOrNull { it.id == chatId }
     }
 
-    override suspend fun createChat(userId: String, title: String): ChatThread {
+    override suspend fun createChat(userId: String, title: String, mode: ChatMode): ChatThread {
         val now = timeProvider.nowMillis()
         val chat = ChatThread(
             id = idGenerator.nextId(),
             userId = userId,
             title = title,
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
+            mode = mode
         )
 
         profileStateStore.update(userId) { state ->
@@ -65,6 +68,17 @@ class FileChatRepository(
 
             val updatedChat = existingChat.copy(
                 contextItems = updatedItems,
+                updatedAt = timeProvider.nowMillis()
+            )
+            state.copy(chats = listOf(updatedChat) + state.chats.filterNot { it.id == chatId })
+        }
+    }
+
+    override suspend fun updateStateMachineSession(userId: String, chatId: String, session: StateMachineSession?) {
+        profileStateStore.update(userId) { state ->
+            val existingChat = state.chats.firstOrNull { it.id == chatId } ?: return@update state
+            val updatedChat = existingChat.copy(
+                stateMachineSession = session,
                 updatedAt = timeProvider.nowMillis()
             )
             state.copy(chats = listOf(updatedChat) + state.chats.filterNot { it.id == chatId })

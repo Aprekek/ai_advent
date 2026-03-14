@@ -26,6 +26,7 @@ import com.aprekek.ai_advent.agentic_app.domain.usecase.SelectChatUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SendMessageUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SetPanelLayoutUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SetThemeUseCase
+import com.aprekek.ai_advent.agentic_app.domain.usecase.StateMachineChatUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.SwitchProfileUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.UpdateProfileUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.UpdateChatContextUseCase
@@ -99,6 +100,7 @@ private val appModule = module {
     single { SetThemeUseCase(get()) }
     single { SetPanelLayoutUseCase(get()) }
     single { SendMessageUseCase(get(), get(), get(), get(), get(), get()) }
+    single { StateMachineChatUseCase(get(), get(), get(), get(), get(), get()) }
 
     single {
         AppViewModel(
@@ -115,7 +117,8 @@ private val appModule = module {
             saveApiKeyUseCase = get(),
             setThemeUseCase = get(),
             setPanelLayoutUseCase = get(),
-            sendMessageUseCase = get()
+            sendMessageUseCase = get(),
+            stateMachineChatUseCase = get()
         )
     }
 }

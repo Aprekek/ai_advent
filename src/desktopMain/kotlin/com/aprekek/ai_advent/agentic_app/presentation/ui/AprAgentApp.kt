@@ -37,8 +37,12 @@ import androidx.compose.material.TextButton
 import androidx.compose.material.TextField
 import androidx.compose.material.darkColors
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.lightColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,6 +66,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatRole
+import com.aprekek.ai_advent.agentic_app.domain.model.ChatMode
+import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineDoneStatus
+import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineSession
+import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineStage
 import com.aprekek.ai_advent.agentic_app.domain.model.ThemeMode
 import com.aprekek.ai_advent.agentic_app.presentation.state.AppViewModel
 import java.awt.Cursor
@@ -88,6 +96,7 @@ fun AprAgentApp(viewModel: AppViewModel) {
 
     var messageInput by remember { mutableStateOf("") }
     var showProfileDialog by remember { mutableStateOf(false) }
+    var showCreateChatDialog by remember { mutableStateOf(false) }
     var editProfileId by remember { mutableStateOf<String?>(null) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
     var showChatContextDialog by remember { mutableStateOf(false) }
@@ -106,7 +115,7 @@ fun AprAgentApp(viewModel: AppViewModel) {
                 onEditProfileClick = { profileId -> editProfileId = profileId },
                 onDeleteProfileClick = viewModel::deleteProfile,
                 onProfileSelected = viewModel::switchProfile,
-                onCreateChatClick = viewModel::createChat,
+                onCreateChatClick = { showCreateChatDialog = true },
                 onApiKeyClick = { showApiKeyDialog = true },
                 onToggleTheme = viewModel::toggleTheme,
                 onToggleLeftPanel = {
@@ -146,6 +155,11 @@ fun AprAgentApp(viewModel: AppViewModel) {
                         messageInput = ""
                     },
                     onStopMessage = viewModel::stopStreaming,
+                    onStateMachineApprovePlan = viewModel::stateMachineApprovePlan,
+                    onStateMachineSkipClarification = viewModel::stateMachineSkipClarification,
+                    onStateMachineContinue = viewModel::stateMachineContinue,
+                    onStateMachineValidationRework = viewModel::stateMachineValidationRework,
+                    onStateMachineValidationAcceptCurrent = viewModel::stateMachineValidationAcceptCurrent,
                     onChatSelected = viewModel::selectChat,
                     onDeleteChat = viewModel::deleteChat,
                     chatContextItems = selectedChatContextItems,
@@ -198,6 +212,16 @@ fun AprAgentApp(viewModel: AppViewModel) {
                 onConfirm = {
                     viewModel.saveApiKey(it)
                     showApiKeyDialog = false
+                }
+            )
+        }
+
+        if (showCreateChatDialog) {
+            CreateChatDialog(
+                onDismiss = { showCreateChatDialog = false },
+                onConfirm = { mode ->
+                    viewModel.createChat(mode)
+                    showCreateChatDialog = false
                 }
             )
         }
@@ -338,6 +362,11 @@ private fun DesktopLayout(
     onMessageInput: (String) -> Unit,
     onSendMessage: () -> Unit,
     onStopMessage: () -> Unit,
+    onStateMachineApprovePlan: () -> Unit,
+    onStateMachineSkipClarification: () -> Unit,
+    onStateMachineContinue: () -> Unit,
+    onStateMachineValidationRework: () -> Unit,
+    onStateMachineValidationAcceptCurrent: () -> Unit,
     onChatSelected: (String) -> Unit,
     onDeleteChat: (String) -> Unit,
     chatContextItems: List<String>,
@@ -365,7 +394,12 @@ private fun DesktopLayout(
             messageInput = messageInput,
             onMessageInput = onMessageInput,
             onSend = onSendMessage,
-            onStop = onStopMessage
+            onStop = onStopMessage,
+            onStateMachineApprovePlan = onStateMachineApprovePlan,
+            onStateMachineSkipClarification = onStateMachineSkipClarification,
+            onStateMachineContinue = onStateMachineContinue,
+            onStateMachineValidationRework = onStateMachineValidationRework,
+            onStateMachineValidationAcceptCurrent = onStateMachineValidationAcceptCurrent
         )
 
         if (state.panelLayoutState.rightPanelVisible) {
@@ -411,6 +445,13 @@ private fun ChatListPanel(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            if (chat.mode == ChatMode.STATE_MACHINE) {
+                                Icon(
+                                    imageVector = Icons.Default.Psychology,
+                                    contentDescription = "State machine chat",
+                                    modifier = Modifier.padding(end = 6.dp)
+                                )
+                            }
                             Text(chat.title, maxLines = 1, modifier = Modifier.weight(1f))
                             IconButton(onClick = { onDeleteChat(chat.id) }) {
                                 Icon(
@@ -434,10 +475,23 @@ private fun ChatPanel(
     messageInput: String,
     onMessageInput: (String) -> Unit,
     onSend: () -> Unit,
-    onStop: () -> Unit
+    onStop: () -> Unit,
+    onStateMachineApprovePlan: () -> Unit,
+    onStateMachineSkipClarification: () -> Unit,
+    onStateMachineContinue: () -> Unit,
+    onStateMachineValidationRework: () -> Unit,
+    onStateMachineValidationAcceptCurrent: () -> Unit
 ) {
     val listState = rememberLazyListState()
     val messages = state.messages
+    val fsm = state.stateMachineSession
+    val isStateMachineChat = state.selectedChatMode == ChatMode.STATE_MACHINE
+    val canTypeInInput = when {
+        state.isStreaming -> false
+        !isStateMachineChat -> true
+        else -> fsm?.waitingForUserInput == true &&
+            (fsm.stage == StateMachineStage.PLANNING || fsm.stage == StateMachineStage.CLARIFICATION || fsm.stage == StateMachineStage.DONE)
+    }
 
     LaunchedEffect(messages.size, state.isAwaitingFirstToken, state.selectedChatId) {
         if (messages.isEmpty() || state.selectedChatId == null) return@LaunchedEffect
@@ -453,6 +507,17 @@ private fun ChatPanel(
                     Text("Выберите чат слева или создайте новый")
                 }
             } else {
+                if (isStateMachineChat && fsm != null) {
+                    StateMachineHeader(
+                        session = fsm,
+                        isStreaming = state.isStreaming,
+                        onApprovePlan = onStateMachineApprovePlan,
+                        onSkipClarification = onStateMachineSkipClarification,
+                        onContinue = onStateMachineContinue,
+                        onValidationRework = onStateMachineValidationRework,
+                        onValidationAcceptCurrent = onStateMachineValidationAcceptCurrent
+                    )
+                }
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -530,21 +595,27 @@ private fun ChatPanel(
                                     keyEvent.type == KeyEventType.KeyDown &&
                                         keyEvent.isMetaPressed &&
                                         (keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
-                                if (isCommandEnter && !state.isStreaming && messageInput.isNotBlank() && state.selectedChatId != null) {
+                                if (isCommandEnter && canTypeInInput && messageInput.isNotBlank() && state.selectedChatId != null) {
                                     onSend()
                                     true
                                 } else {
                                     false
                                 }
                             },
-                        enabled = !state.isStreaming,
-                        placeholder = { Text("Введите сообщение...") }
+                        enabled = canTypeInInput,
+                        placeholder = {
+                            if (canTypeInInput) {
+                                Text("Введите сообщение...")
+                            } else {
+                                Text("Ожидание этапа state-machine...")
+                            }
+                        }
                     )
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = onSend,
-                            enabled = !state.isStreaming && messageInput.isNotBlank() && state.selectedChatId != null
+                            enabled = canTypeInInput && messageInput.isNotBlank() && state.selectedChatId != null
                         ) {
                             Text("Отправить")
                         }
@@ -559,6 +630,106 @@ private fun ChatPanel(
             }
         }
     }
+}
+
+@Composable
+private fun StateMachineHeader(
+    session: StateMachineSession,
+    isStreaming: Boolean,
+    onApprovePlan: () -> Unit,
+    onSkipClarification: () -> Unit,
+    onContinue: () -> Unit,
+    onValidationRework: () -> Unit,
+    onValidationAcceptCurrent: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        color = MaterialTheme.colors.surface
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                StageBadge(title = "Planning", stage = StateMachineStage.PLANNING, current = session.stage)
+                Text("→")
+                StageBadge(title = "Execution", stage = StateMachineStage.EXECUTION, current = session.stage)
+                Text("→")
+                StageBadge(title = "Validation", stage = StateMachineStage.VALIDATION, current = session.stage)
+                Text("→")
+                StageBadge(title = "Done", stage = StateMachineStage.DONE, current = session.stage)
+            }
+
+            if (session.stage == StateMachineStage.DONE) {
+                val done = when (session.doneStatus ?: StateMachineDoneStatus.DONE) {
+                    StateMachineDoneStatus.DONE -> "Done"
+                    StateMachineDoneStatus.CANCELED -> "Canceled"
+                    StateMachineDoneStatus.FAILED -> "Failed: ${session.lastFailureReason.orEmpty()}"
+                }
+                Text(done)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val approveEnabled = !isStreaming &&
+                    session.waitingForUserInput &&
+                    (session.stage == StateMachineStage.PLANNING || session.stage == StateMachineStage.CLARIFICATION) &&
+                    session.planDraft.isNotBlank()
+                OutlinedButton(onClick = onApprovePlan, enabled = approveEnabled) {
+                    Text("Перейти к выполнению")
+                }
+
+                val skipEnabled = !isStreaming &&
+                    session.waitingForUserInput &&
+                    session.stage == StateMachineStage.CLARIFICATION &&
+                    session.planDraft.isNotBlank()
+                OutlinedButton(onClick = onSkipClarification, enabled = skipEnabled) {
+                    Text("Пропустить уточнения")
+                }
+
+                val continueEnabled = !isStreaming &&
+                    !session.waitingForUserInput &&
+                    (session.stage == StateMachineStage.EXECUTION || session.stage == StateMachineStage.VALIDATION)
+                OutlinedButton(onClick = onContinue, enabled = continueEnabled) {
+                    Text("Продолжить выполнение")
+                }
+            }
+
+            if (session.stage == StateMachineStage.VALIDATION && session.waitingForUserInput) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onValidationRework, enabled = !isStreaming) {
+                        Text("Переделать execution")
+                    }
+                    OutlinedButton(onClick = onValidationAcceptCurrent, enabled = !isStreaming) {
+                        Text("Принять текущее")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StageBadge(
+    title: String,
+    stage: StateMachineStage,
+    current: StateMachineStage
+) {
+    val icon = when {
+        stage == current -> Icons.Default.HourglassTop
+        stageDone(stage, current) -> Icons.Default.CheckCircle
+        else -> Icons.Default.RadioButtonUnchecked
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(icon, contentDescription = title)
+        Text(title)
+    }
+}
+
+private fun stageDone(stage: StateMachineStage, current: StateMachineStage): Boolean {
+    val order = listOf(
+        StateMachineStage.PLANNING,
+        StateMachineStage.EXECUTION,
+        StateMachineStage.VALIDATION,
+        StateMachineStage.DONE
+    )
+    return order.indexOf(stage) < order.indexOf(current)
 }
 
 @Composable
@@ -829,6 +1000,45 @@ private fun ApiKeyDialog(
                 enabled = value.isNotBlank()
             ) {
                 Text("Сохранить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        }
+    )
+}
+
+@Composable
+private fun CreateChatDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (ChatMode) -> Unit
+) {
+    var mode by remember { mutableStateOf(ChatMode.STANDARD) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Новый чат") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { mode = ChatMode.STANDARD },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (mode == ChatMode.STANDARD) "Standard ✓" else "Standard")
+                }
+                OutlinedButton(
+                    onClick = { mode = ChatMode.STATE_MACHINE },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (mode == ChatMode.STATE_MACHINE) "State machine ✓" else "State machine")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(mode) }) {
+                Text("Создать")
             }
         },
         dismissButton = {

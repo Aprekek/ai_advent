@@ -1,5 +1,6 @@
 package com.aprekek.ai_advent.agentic_app.domain.usecase
 
+import com.aprekek.ai_advent.agentic_app.domain.model.ChatMode
 import com.aprekek.ai_advent.agentic_app.domain.model.ProfileWorkspace
 import com.aprekek.ai_advent.agentic_app.domain.port.ApiKeyRepository
 import com.aprekek.ai_advent.agentic_app.domain.port.ChatRepository
@@ -28,12 +29,15 @@ class LoadWorkspaceUseCase(
         val messages = selectedChatId
             ?.let { chatRepository.listMessages(profileId, it) }
             .orEmpty()
+        val selectedChat = chats.firstOrNull { it.id == selectedChatId }
 
         val hasApiKey = !apiKeyRepository.getApiKey(profileId).isNullOrBlank()
 
         return ProfileWorkspace(
             chats = chats,
             selectedChatId = selectedChatId,
+            selectedChatMode = selectedChat?.mode ?: ChatMode.STANDARD,
+            stateMachineSession = selectedChat?.stateMachineSession,
             messages = messages,
             hasApiKey = hasApiKey
         )

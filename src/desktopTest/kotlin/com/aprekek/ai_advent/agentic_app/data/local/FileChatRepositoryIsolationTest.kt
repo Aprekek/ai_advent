@@ -1,6 +1,7 @@
 package com.aprekek.ai_advent.agentic_app.data.local
 
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatMessage
+import com.aprekek.ai_advent.agentic_app.domain.model.ChatMode
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatRole
 import com.aprekek.ai_advent.agentic_app.domain.port.IdGenerator
 import com.aprekek.ai_advent.agentic_app.domain.port.TimeProvider
@@ -27,8 +28,8 @@ class FileChatRepositoryIsolationTest {
             }
         )
 
-        val chatA = repository.createChat("uA", "Chat A")
-        val chatB = repository.createChat("uB", "Chat B")
+        val chatA = repository.createChat("uA", "Chat A", ChatMode.STANDARD)
+        val chatB = repository.createChat("uB", "Chat B", ChatMode.STANDARD)
 
         repository.appendMessage(
             userId = "uA",
@@ -66,7 +67,7 @@ class FileChatRepositoryIsolationTest {
             }
         )
 
-        val chat = repository.createChat("uA", "Chat to delete")
+        val chat = repository.createChat("uA", "Chat to delete", ChatMode.STANDARD)
         repository.appendMessage(
             userId = "uA",
             chatId = chat.id,
