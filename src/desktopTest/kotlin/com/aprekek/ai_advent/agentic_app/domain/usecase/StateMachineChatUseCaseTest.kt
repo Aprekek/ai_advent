@@ -8,7 +8,6 @@ import com.aprekek.ai_advent.agentic_app.domain.model.ChatRole
 import com.aprekek.ai_advent.agentic_app.domain.model.ChatThread
 import com.aprekek.ai_advent.agentic_app.domain.model.ProfileDescriptionItem
 import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineAction
-import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineDoneStatus
 import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineSession
 import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineStage
 import com.aprekek.ai_advent.agentic_app.domain.model.StreamEvent
@@ -22,6 +21,7 @@ import com.aprekek.ai_advent.agentic_app.domain.port.UserRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -48,7 +48,7 @@ class StateMachineChatUseCaseTest {
     }
 
     @Test
-    fun `completes flow to done when validation approves`() = runTest {
+    fun `after successful completion starts new planning session`() = runTest {
         val repo = InMemoryChatRepository()
         repo.createChat("u1", "FSM", ChatMode.STATE_MACHINE)
         val useCase = buildUseCase(repo) { request ->
@@ -68,8 +68,9 @@ class StateMachineChatUseCaseTest {
 
         val session = repo.getChat("u1", "chat-1")?.stateMachineSession
         assertNotNull(session)
-        assertEquals(StateMachineStage.DONE, session.stage)
-        assertEquals(StateMachineDoneStatus.DONE, session.doneStatus)
+        assertEquals(StateMachineStage.PLANNING, session.stage)
+        assertEquals(true, session.waitingForUserInput)
+        assertNull(session.doneStatus)
     }
 
     private fun buildUseCase(

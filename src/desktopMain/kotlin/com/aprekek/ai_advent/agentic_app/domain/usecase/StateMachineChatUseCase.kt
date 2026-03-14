@@ -252,6 +252,11 @@ class StateMachineChatUseCase(
                         saveSession(profileId, chatId, session, updated)
                         if (updated.stage == StateMachineStage.DONE && updated.doneStatus == StateMachineDoneStatus.DONE) {
                             appendAssistant(profileId, chatId, "Done")
+                            val restarted = freshSession(taskSeed = "")
+                            saveSession(profileId, chatId, updated, restarted)
+                            emit(StateMachineProgress.SessionUpdated(restarted))
+                            emit(StateMachineProgress.Completed)
+                            return@flow
                         }
                         emit(StateMachineProgress.SessionUpdated(updated))
                         emit(StateMachineProgress.Completed)
@@ -287,7 +292,9 @@ class StateMachineChatUseCase(
                 )
                 saveSession(profileId, chatId, session, updated)
                 appendAssistant(profileId, chatId, "Done")
-                emit(StateMachineProgress.SessionUpdated(updated))
+                val restarted = freshSession(taskSeed = "")
+                saveSession(profileId, chatId, updated, restarted)
+                emit(StateMachineProgress.SessionUpdated(restarted))
                 emit(StateMachineProgress.Completed)
             }
         }
