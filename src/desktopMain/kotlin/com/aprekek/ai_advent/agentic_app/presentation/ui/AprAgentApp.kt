@@ -539,16 +539,23 @@ private fun ChatPanel(
     }
 
     LaunchedEffect(listState, state.selectedChatId) {
-        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-            .collect {
-                val atBottom = isAtBottom(listState)
-                if (atBottom) {
-                    autoScrollEnabled = true
-                } else if (!isProgrammaticScroll) {
-                    // Disable auto-scroll on any user-originated displacement, even tiny.
-                    autoScrollEnabled = false
-                }
+        snapshotFlow {
+            Triple(
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset,
+                listState.isScrollInProgress
+            )
+        }.collect { (_, _, isScrolling) ->
+            val atBottom = isAtBottom(listState)
+            if (isScrolling && !isProgrammaticScroll) {
+                // Any manual scroll activity (including fast wheel/fling) disables auto-follow.
+                autoScrollEnabled = false
+            } else if (atBottom && !isScrolling) {
+                autoScrollEnabled = true
+            } else if (!atBottom && !isProgrammaticScroll) {
+                autoScrollEnabled = false
             }
+        }
     }
 
     Surface(modifier = modifier, color = MaterialTheme.colors.background) {
