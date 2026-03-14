@@ -11,6 +11,7 @@ import com.aprekek.ai_advent.agentic_app.domain.model.PanelLayoutState
 import com.aprekek.ai_advent.agentic_app.domain.model.SendMessageProgress
 import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineAction
 import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineProgress
+import com.aprekek.ai_advent.agentic_app.domain.model.StateMachineStage
 import com.aprekek.ai_advent.agentic_app.domain.model.ThemeMode
 import com.aprekek.ai_advent.agentic_app.domain.usecase.BootstrapAppUseCase
 import com.aprekek.ai_advent.agentic_app.domain.usecase.CreateChatUseCase
@@ -373,6 +374,16 @@ class AppViewModel(
 
             refreshWorkspace(profileId)
             state = state.copy(isStreaming = false, isAwaitingFirstToken = false, reconnectAttempt = null)
+
+            val session = state.stateMachineSession
+            val shouldAutoContinue = state.selectedChatMode == ChatMode.STATE_MACHINE &&
+                session != null &&
+                !session.waitingForUserInput &&
+                (session.stage == StateMachineStage.EXECUTION || session.stage == StateMachineStage.VALIDATION)
+
+            if (shouldAutoContinue) {
+                runStateMachineAction(profileId, chatId, StateMachineAction.Continue)
+            }
         }
     }
 
